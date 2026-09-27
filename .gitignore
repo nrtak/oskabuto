@@ -1,0 +1,14 @@
+.DS_Store
+build/
+*.xcodeproj/
+*.xcworkspace/
+*.xcresult/
+*.log
+*.ipa
+*.xcarchive/
+*.p12
+*.p8
+*.mobileprovision
+project-release.yml
+ExportOptions.plist
+__pycache__/
