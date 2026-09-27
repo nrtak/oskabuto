@@ -16,7 +16,7 @@ targets:
     sources: [App]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.nrtak.simplecurrency
+        PRODUCT_BUNDLE_IDENTIFIER: com.simplecurrency.app
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Simple Currency
         INFOPLIST_KEY_NSCameraUsageDescription: Take a photo to remember an item with its saved currency conversion.
