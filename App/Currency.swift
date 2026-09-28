@@ -64,6 +64,18 @@ struct Currency: Identifiable, Hashable {
         result["XCG"] = ["Curaçao", "Sint Maarten"]
         result["ZWG"] = ["Zimbabwe"]
         result["CNH"] = ["China (offshore)"]
+        result["XAF"] = ["Cameroon", "Central African Republic", "Chad", "Republic of the Congo", "Equatorial Guinea", "Gabon"]
+        result["XOF"] = ["Benin", "Burkina Faso", "Côte d’Ivoire", "Guinea-Bissau", "Mali", "Niger", "Senegal", "Togo"]
+        result["XCD"] = ["Anguilla", "Antigua and Barbuda", "Dominica", "Grenada", "Montserrat", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines"]
+        // Some regions prefer a second legal tender in their locale metadata.
+        // National ISO currency codes begin with the issuing country's region code.
+        let regionCodes = Set(Locale.Region.isoRegions.map(\.identifier))
+        for entry in catalogue where (result[entry.code] ?? []).isEmpty {
+            let region = String(entry.code.prefix(2))
+            if regionCodes.contains(region), let name = english.localizedString(forRegionCode: region) {
+                result[entry.code] = [name]
+            }
+        }
         return result
     }()
     private static let preferredCountryNames: [String: [String]] = [
