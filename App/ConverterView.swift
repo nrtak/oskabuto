@@ -36,6 +36,10 @@ struct ConverterView: View {
                             Text("Reference rates by Frankfurter · Bank and card rates may differ.")
                                 .font(.caption2).foregroundStyle(.secondary)
                                 .frame(maxWidth: .infinity).multilineTextAlignment(.center)
+                            Button("About rates & privacy") { showsAbout = true }
+                                .font(.caption2).foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .accessibilityLabel("About exchange rates and privacy")
                         }
                     }.padding(.horizontal, 16).padding(.vertical, 8)
                 }
@@ -47,8 +51,7 @@ struct ConverterView: View {
             .navigationTitle("Convert Currency")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) { Button { showsAbout = true } label: { Image(systemName: "info.circle") }.accessibilityLabel("About rates and privacy") }
-                ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Done") { editingSide = nil } }
+                ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Convert") { editingSide = nil } }
             }
             .sheet(item: $picker) { side in CurrencyPicker(store: store, title: side == .target ? "Search currency" : "Convert from", select: { code in
                 if side == .source { store.source = code } else { store.target = code }; picker = nil
