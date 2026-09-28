@@ -55,8 +55,23 @@ final class CurrencyTests: XCTestCase {
         XCTAssertTrue(Currency.named("EUR").matches("Bulgaria"))
         XCTAssertTrue(Currency.named("GBP").matches("England"))
         XCTAssertEqual(Currency.named("EUR").countryLabel(matching: "Germany"), "Germany")
-        XCTAssertEqual(Currency.named("GBP").countryLabel, "United Kingdom")
+        XCTAssertTrue(Currency.named("GBP").countries.contains("United Kingdom"))
         XCTAssertTrue(Currency.all.allSatisfy { !$0.countries.isEmpty })
+    }
+
+    func testWorldwideCountrySearchAndCurrencyPrecision() {
+        XCTAssertGreaterThan(Currency.all.count, 150)
+        for (query, code) in [("Malaysia", "MYR"), ("Kuwait", "KWD"), ("Kenya", "KES"),
+                              ("Germany", "EUR"), ("Senegal", "XOF"), ("Ecuador", "USD"),
+                              ("Polish", "PLN"), ("Turkey", "TRY"), ("Curaçao", "XCG")] {
+            XCTAssertTrue(Currency.all.contains { $0.code == code && $0.matches(query) }, query)
+        }
+        XCTAssertEqual(Currency.named("KWD").fractionDigits, 3)
+        XCTAssertEqual(Currency.named("JPY").fractionDigits, 0)
+        XCTAssertEqual(Currency.named("USD").symbol, "$")
+        XCTAssertEqual(Currency.named("JPY").symbol, "¥")
+        XCTAssertEqual(Amount.format(Decimal(string: "12.3456")!, currency: .named("KWD"), locale: Locale(identifier: "en_US")), "12.346")
+        XCTAssertEqual(Currency.named("XYZ").code, "XYZ")
     }
 
     @MainActor
