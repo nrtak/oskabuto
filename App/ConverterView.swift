@@ -17,8 +17,8 @@ struct ConverterView: View {
         NavigationStack {
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: editing ? 12 : 18) {
-                        VStack(spacing: editing ? 6 : 10) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        VStack(spacing: 6) {
                             amountCard(source: true)
                             Button { editingSide = nil; store.swap() } label: {
                                 Image(systemName: "arrow.up.arrow.down")
@@ -33,13 +33,15 @@ struct ConverterView: View {
                             rateDetails
                             saveButtons
                             favorites
-                            Text("Reference rates by Frankfurter · Bank and card rates may differ.")
-                                .font(.caption2).foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity).multilineTextAlignment(.center)
-                            Button("About rates & privacy") { showsAbout = true }
-                                .font(.caption2).foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, minHeight: 44)
-                                .accessibilityLabel("About exchange rates and privacy")
+                            VStack(spacing: 0) {
+                                Text("Reference rates by Frankfurter · Bank and card rates may differ.")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity).multilineTextAlignment(.center)
+                                Button("About rates & privacy") { showsAbout = true }
+                                    .font(.caption2).foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, minHeight: 44)
+                                    .accessibilityLabel("About exchange rates and privacy")
+                            }
                         }
                     }.padding(.horizontal, 16).padding(.vertical, 8)
                 }
@@ -66,7 +68,7 @@ struct ConverterView: View {
 
     private func amountCard(source: Bool) -> some View {
         let code = source ? store.source : store.target
-        return VStack(alignment: .leading, spacing: editing ? 6 : 14) {
+        return VStack(alignment: .leading, spacing: editing ? 6 : 10) {
             currencyButton(code, side: source ? .source : .target)
             if !source {
                 Rectangle().fill(Color.blue.opacity(0.35)).frame(height: 1)
@@ -86,7 +88,7 @@ struct ConverterView: View {
                 .accessibilityLabel("\(source ? "From" : "To") amount in \(Currency.named(code).name)")
             }
         }
-        .padding(editing ? 12 : 20)
+        .padding(editing ? 12 : 16)
         .background(source ? Color(uiColor: .secondarySystemBackground) : Color.blue.opacity(0.10),
                     in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12)
