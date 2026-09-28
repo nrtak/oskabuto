@@ -56,7 +56,7 @@ final class CurrencyTests: XCTestCase {
         XCTAssertTrue(Currency.named("GBP").matches("England"))
         XCTAssertEqual(Currency.named("EUR").countryLabel(matching: "Germany"), "Germany")
         XCTAssertTrue(Currency.named("GBP").countries.contains("United Kingdom"))
-        XCTAssertTrue(Currency.all.allSatisfy { !$0.countries.isEmpty })
+        XCTAssertEqual(Currency.all.filter { $0.countries.isEmpty }.map(\.code), [])
     }
 
     func testWorldwideCountrySearchAndCurrencyPrecision() {
