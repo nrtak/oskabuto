@@ -26,14 +26,14 @@ struct Currency: Identifiable, Hashable {
     }()
     var countries: [String] { Self.countryNames[code] ?? [] }
     var countryLabel: String {
-        if countries.count <= 2 { return countries.joined(separator: " Â· ") }
-        return "\(countries[0]) Â· \(countries[1]) & more"
+        if countries.count <= 2 { return countries.joined(separator: " · ") }
+        return "\(countries[0]) · \(countries[1]) & more"
     }
     func countryLabel(matching query: String) -> String {
         let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !term.isEmpty else { return countryLabel }
         let matches = countries.filter { $0.range(of: term, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
-        return matches.isEmpty ? countryLabel : matches.joined(separator: " Â· ")
+        return matches.isEmpty ? countryLabel : matches.joined(separator: " · ")
     }
     var fractionDigits: Int {
         let formatter = NumberFormatter()
@@ -58,7 +58,6 @@ struct Currency: Identifiable, Hashable {
                   let name = english.localizedString(forRegionCode: region.identifier) else { continue }
             if !(result[code] ?? []).contains(name) { result[code, default: []].append(name) }
         }
-        result["EUR"] = Array(Set((result["EUR"] ?? []) + ["Bulgaria", "Croatia"])).sorted()
         result["GGP"] = ["Guernsey"]
         result["JEP"] = ["Jersey"]
         result["IMP"] = ["Isle of Man"]
@@ -101,14 +100,14 @@ struct Currency: Identifiable, Hashable {
     private static let common: [Currency] = [
         .init(code: "USD", name: "US dollar", aliases: "USA United States America"),
         .init(code: "CAD", name: "Canadian dollar", aliases: "Canada"),
-        .init(code: "MXN", name: "Mexican peso", aliases: "Mexico MÃ©xico"),
+        .init(code: "MXN", name: "Mexican peso", aliases: "Mexico México"),
         .init(code: "EUR", name: "Euro", aliases: "Europe Eurozone Croatia France Germany Italy Spain Portugal Austria Belgium Netherlands Ireland Greece Finland"),
         .init(code: "JPY", name: "Japanese yen", aliases: "Japan"),
         .init(code: "TWD", name: "New Taiwan dollar", aliases: "Taiwan"),
         .init(code: "KRW", name: "South Korean won", aliases: "South Korea"),
         .init(code: "HKD", name: "Hong Kong dollar", aliases: "Hong Kong"),
         .init(code: "CNY", name: "Chinese yuan", aliases: "Mainland China RMB renminbi"),
-        .init(code: "VND", name: "Vietnamese dong", aliases: "Vietnam Viá»‡t Nam"),
+        .init(code: "VND", name: "Vietnamese dong", aliases: "Vietnam Việt Nam"),
         .init(code: "GBP", name: "Pound sterling", aliases: "United Kingdom UK Britain England Scotland Wales Northern Ireland"),
         .init(code: "AED", name: "UAE dirham", aliases: "United Arab Emirates Dubai Abu Dhabi"),
         .init(code: "QAR", name: "Qatari riyal", aliases: "Qatar"),

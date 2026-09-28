@@ -26,7 +26,7 @@ struct ConverterView: View {
                             rateDetails
                             saveButtons
                             favorites
-                            Text("Reference rates by Frankfurter Â· Bank and card rates may differ.")
+                            Text("Reference rates by Frankfurter · Bank and card rates may differ.")
                                 .font(.caption2).foregroundStyle(.secondary)
                                 .frame(maxWidth: .infinity).multilineTextAlignment(.center)
                         }
@@ -102,9 +102,9 @@ struct ConverterView: View {
                 Text(store.detail)
                 if let checked = store.lastChecked { Text(checked) }
                 if store.updateFailed {
-                    Label(store.snapshot == nil ? "Couldnâ€™t load rates. Try again when connected." : "Couldnâ€™t refresh. Showing saved rates.", systemImage: "wifi.slash")
+                    Label(store.snapshot == nil ? "Couldn’t load rates. Try again when connected." : "Couldn’t refresh. Showing saved rates.", systemImage: "wifi.slash")
                 }
-                if store.cacheWriteFailed { Text("Rates loaded, but couldnâ€™t save for offline use.") }
+                if store.cacheWriteFailed { Text("Rates loaded, but couldn’t save for offline use.") }
             }.font(.caption2).foregroundStyle(.secondary)
             Spacer(minLength: 0)
             Button { Task { await store.refresh(force: true) } } label: {
