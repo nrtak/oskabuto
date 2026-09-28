@@ -21,12 +21,23 @@ struct ConverterView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         VStack(spacing: 6) {
                             amountCard(source: true)
-                            Button { editingSide = nil; store.swap() } label: {
+                            HStack(spacing: 8) {
+                              Color.clear.frame(maxWidth: .infinity, maxHeight: 44)
+                              Button { editingSide = nil; store.swap() } label: {
                                 Image(systemName: "arrow.up.arrow.down")
                                     .font(.title3.weight(.semibold)).frame(width: 48, height: 44)
                                     .background(Color.blue, in: RoundedRectangle(cornerRadius: 8))
                                     .foregroundStyle(.white)
-                            }.accessibilityLabel("Swap currencies")
+                              }.accessibilityLabel("Swap currencies")
+                              Button("Clear amount") {
+                                  let side = editingSide ?? store.inputSide
+                                  store.edit("", side: side)
+                                  editingSide = side
+                              }
+                              .font(.subheadline.weight(.medium))
+                              .frame(maxWidth: .infinity, minHeight: 44, alignment: .trailing)
+                              .accessibilityHint("Clears both amounts and opens the keyboard for a new price")
+                            }.frame(maxWidth: .infinity)
                             amountCard(source: false)
                         }.id("amounts")
 
