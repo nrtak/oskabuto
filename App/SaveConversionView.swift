@@ -17,6 +17,10 @@ struct SaveConversionView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    Text("Spotted something you might buy? Save its converted price with a photo and note, then revisit it later. Handy for travel finds and souvenirs.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
                 Section("Conversion") {
                     Text(draft.summary).font(.headline).textSelection(.enabled)
                     Text("This amount and rate will stay as saved.").font(.caption).foregroundStyle(.secondary)

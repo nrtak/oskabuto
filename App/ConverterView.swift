@@ -15,7 +15,8 @@ struct ConverterView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollViewReader { proxy in
+            GeometryReader { geometry in
+              ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
                         VStack(spacing: 6) {
@@ -32,7 +33,11 @@ struct ConverterView: View {
                         if !editing {
                             rateDetails
                             saveButtons
+                            Text("Save a price, photo and note to revisit a travel find later.")
+                                .font(.caption).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
                             favorites
+                            Spacer(minLength: 0)
                             VStack(spacing: 0) {
                                 Text("Reference rates by Frankfurter · Bank and card rates may differ.")
                                     .font(.caption2).foregroundStyle(.secondary)
@@ -43,12 +48,15 @@ struct ConverterView: View {
                                     .accessibilityLabel("About exchange rates and privacy")
                             }
                         }
-                    }.padding(.horizontal, 16).padding(.vertical, 8)
+                    }
+                    .frame(minHeight: max(0, geometry.size.height - 16), alignment: .top)
+                    .padding(.horizontal, 16).padding(.vertical, 8)
                 }
                 .scrollDismissesKeyboard(.interactively)
                 .onChange(of: editing) { _, active in
                     if active { proxy.scrollTo("amounts", anchor: .top) }
                 }
+            }
             }
             .navigationTitle("Convert Currency")
             .navigationBarTitleDisplayMode(.inline)
@@ -166,17 +174,22 @@ struct ConverterView: View {
 
     private func currencyButton(_ code: String, side: PickerSide) -> some View {
         Button { editingSide = nil; picker = side } label: {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(side == .source ? "From" : "To").font(.caption).foregroundStyle(.secondary)
-                    Text(code).font(.headline)
-                    Text("Click to change").font(.caption).foregroundStyle(.blue)
-                }
-                if !editing {
-                    Text(Currency.named(code).name).font(.caption).foregroundStyle(.secondary)
-                }
-                Text(Currency.named(code).countryLabel).font(.caption).foregroundStyle(.secondary)
-                    .lineLimit(editing ? 1 : 2)
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(side == .source ? "From" : "To").font(.caption).foregroundStyle(.secondary)
+                        Text(code).font(.headline)
+                    }
+                    Text(Currency.named(code).countryLabel).font(.headline)
+                        .lineLimit(editing ? 1 : 2)
+                    if !editing {
+                        Text(Currency.named(code).name).font(.caption).foregroundStyle(.secondary)
+                    }
+                }.frame(maxWidth: .infinity, alignment: .leading)
+                Label("Search", systemImage: "magnifyingglass")
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(.blue)
+                    .padding(.horizontal, 10).frame(minHeight: 44)
+                    .background(Color.blue.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
             }.foregroundStyle(.primary).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 .contentShape(Rectangle())
         }.buttonStyle(.plain).accessibilityLabel("\(side == .source ? "From" : "To"): \(Currency.named(code).name), \(Currency.named(code).countryLabel). Change currency")
@@ -220,7 +233,7 @@ private struct CurrencyPicker: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(currency.code).font(.headline)
                                 Text(currency.name).font(.subheadline).foregroundStyle(.secondary)
-                                Text(currency.countryLabel(matching: query)).font(.caption).foregroundStyle(.secondary)
+                                Text(currency.countryLabel(matching: query)).font(.headline)
                             }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
                         }.buttonStyle(.plain)
                         Button { store.toggleFavorite(currency.code) } label: {
@@ -230,7 +243,7 @@ private struct CurrencyPicker: View {
                     }
                 }
                 if results.isEmpty { Text("No currency found. Try a country name, currency name or three-letter code.").foregroundStyle(.secondary) }
-            }.searchable(text: $query, prompt: "Country, currency or code")
+            }.searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Country, currency or code")
                 .navigationTitle(title).navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }

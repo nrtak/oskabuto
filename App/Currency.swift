@@ -26,8 +26,13 @@ struct Currency: Identifiable, Hashable {
     }()
     var countries: [String] { Self.countryNames[code] ?? [] }
     var countryLabel: String {
-        if countries.count <= 2 { return countries.joined(separator: " · ") }
-        return "\(countries[0]) · \(countries[1]) & more"
+        switch code {
+        case "EUR": return "Eurozone"
+        case "XAF": return "Central Africa"
+        case "XOF": return "West Africa"
+        case "XCD": return "Eastern Caribbean"
+        default: return Self.preferredCountryNames[code]?.first ?? countries.first ?? name
+        }
     }
     func countryLabel(matching query: String) -> String {
         let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -113,7 +118,7 @@ struct Currency: Identifiable, Hashable {
         .init(code: "USD", name: "US dollar", aliases: "USA United States America"),
         .init(code: "CAD", name: "Canadian dollar", aliases: "Canada"),
         .init(code: "MXN", name: "Mexican peso", aliases: "Mexico México"),
-        .init(code: "EUR", name: "Euro", aliases: "Europe Eurozone Croatia France Germany Italy Spain Portugal Austria Belgium Netherlands Ireland Greece Finland"),
+        .init(code: "EUR", name: "Euro", aliases: "Europe European Union EU Eurozone Croatia France Germany Italy Spain Portugal Austria Belgium Netherlands Ireland Greece Finland"),
         .init(code: "JPY", name: "Japanese yen", aliases: "Japan"),
         .init(code: "TWD", name: "New Taiwan dollar", aliases: "Taiwan"),
         .init(code: "KRW", name: "South Korean won", aliases: "South Korea"),
