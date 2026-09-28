@@ -92,10 +92,10 @@ final class ConverterStore: ObservableObject {
     }
 
     func savedDraft() -> SavedConversion? {
-        guard let value = value(for: source), let converted = value(for: target),
+        guard let sourceValue = value(for: source), let converted = value(for: target),
               let multiplier = source == target ? Decimal(1) : snapshot?.multiplier(from: source, to: target) else { return nil }
         return SavedConversion(id: UUID(), savedAt: Date(), source: source, target: target,
-                               amount: value, multiplier: multiplier, convertedAmount: converted,
+                               amount: sourceValue, multiplier: multiplier, convertedAmount: converted,
                                rateDates: source == target ? [] : snapshot?.dates(from: source, to: target) ?? [],
                                ratesCheckedAt: source == target ? nil : snapshot?.fetchedAt,
                                note: "", photoFilename: nil)
