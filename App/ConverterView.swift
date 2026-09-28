@@ -26,7 +26,7 @@ struct ConverterView: View {
                             rateDetails
                             saveButtons
                             favorites
-                            Text("Reference rates by Frankfurter · Bank and card rates may differ.")
+                            Text("Reference rates by Frankfurter Â· Bank and card rates may differ.")
                                 .font(.caption2).foregroundStyle(.secondary)
                                 .frame(maxWidth: .infinity).multilineTextAlignment(.center)
                         }
@@ -102,9 +102,9 @@ struct ConverterView: View {
                 Text(store.detail)
                 if let checked = store.lastChecked { Text(checked) }
                 if store.updateFailed {
-                    Label(store.snapshot == nil ? "Couldn’t load rates. Try again when connected." : "Couldn’t refresh. Showing saved rates.", systemImage: "wifi.slash")
+                    Label(store.snapshot == nil ? "Couldnâ€™t load rates. Try again when connected." : "Couldnâ€™t refresh. Showing saved rates.", systemImage: "wifi.slash")
                 }
-                if store.cacheWriteFailed { Text("Rates loaded, but couldn’t save for offline use.") }
+                if store.cacheWriteFailed { Text("Rates loaded, but couldnâ€™t save for offline use.") }
             }.font(.caption2).foregroundStyle(.secondary)
             Spacer(minLength: 0)
             Button { Task { await store.refresh(force: true) } } label: {
@@ -193,7 +193,7 @@ struct ConverterView: View {
                 }
                 Section("Offline use") { Text("After a successful update, rates are saved on this iPhone. Refresh requires internet. Older rates stay clearly dated.") }
                 Section("Privacy") { Text("No account, ads, or analytics. Your amount, favorites, saved conversions, notes and attached photos are stored locally and may be included in your device backups. The app does not upload notes or photos. Camera access is used only when you choose Take photo; Photos lets you select an individual image. The app requests a USD rate table over HTTPS; it does not send your entered amount. The rate service and network infrastructure process the request.") }
-                Section("Currency search") { Text("This first version includes 26 currencies. Search by country, currency name or code. Croatia uses EUR; Tahiti and Bora Bora use XPF.") }
+                Section("Currency search") { Text("Search the full travel currency catalogue by country, currency name or code. Favorites appear first. Croatia uses EUR; Tahiti and Bora Bora use XPF. Availability depends on the rate provider; unavailable conversions show a dash.") }
             }.navigationTitle("About").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showsAbout = false } } }
         }
@@ -230,7 +230,7 @@ private struct CurrencyPicker: View {
                         }.buttonStyle(.borderless).accessibilityLabel("\(store.favorites.contains(currency.code) ? "Remove" : "Favorite") \(currency.name)")
                     }
                 }
-                if results.isEmpty { Text("No supported currency found.").foregroundStyle(.secondary) }
+                if results.isEmpty { Text("No currency found. Try a country name, currency name or three-letter code.").foregroundStyle(.secondary) }
             }.searchable(text: $query, prompt: "Country, currency or code")
                 .navigationTitle(title).navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }

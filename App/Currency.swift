@@ -10,20 +10,37 @@ struct Currency: Identifiable, Hashable {
         formatter.locale = Locale(identifier: "en_US")
         formatter.numberStyle = .currency
         formatter.currencyCode = code
-        return formatter.currencySymbol ?? code
+        let value = formatter.currencySymbol ?? code
+        return value == code ? (Self.catalogue.first { $0.code == code }?.symbol ?? code) : value
     }
+    private struct CatalogueEntry: Decodable {
+        let code: String
+        let name: String
+        let symbol: String?
+    }
+    private static let catalogue: [CatalogueEntry] = {
+        guard let url = Bundle.main.url(forResource: "Currencies", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let rows = try? JSONDecoder().decode([CatalogueEntry].self, from: data) else { return [] }
+        return rows
+    }()
     var countries: [String] { Self.countryNames[code] ?? [] }
     var countryLabel: String {
-        if countries.count <= 2 { return countries.joined(separator: " · ") }
-        return "\(countries[0]) · \(countries[1]) & more"
+        if countries.count <= 2 { return countries.joined(separator: " Â· ") }
+        return "\(countries[0]) Â· \(countries[1]) & more"
     }
     func countryLabel(matching query: String) -> String {
         let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !term.isEmpty else { return countryLabel }
         let matches = countries.filter { $0.range(of: term, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
-        return matches.isEmpty ? countryLabel : matches.joined(separator: " · ")
+        return matches.isEmpty ? countryLabel : matches.joined(separator: " Â· ")
     }
-    var fractionDigits: Int { ["JPY", "KRW", "VND", "XPF"].contains(code) ? 0 : 2 }
+    var fractionDigits: Int {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = code
+        return formatter.maximumFractionDigits
+    }
 
     func matches(_ query: String) -> Bool {
         let terms = query.split(whereSeparator: { $0.isWhitespace })
@@ -31,8 +48,26 @@ struct Currency: Identifiable, Hashable {
         return terms.allSatisfy { text.range(of: String($0), options: [.caseInsensitive, .diacriticInsensitive]) != nil }
     }
 
-    static func named(_ code: String) -> Currency { all.first { $0.code == code } ?? all[0] }
-    static let countryNames: [String: [String]] = [
+    static func named(_ code: String) -> Currency { all.first { $0.code == code } ?? Currency(code: code, name: Locale(identifier: "en_US").localizedString(forCurrencyCode: code) ?? code, aliases: "") }
+    static let countryNames: [String: [String]] = {
+        var result = preferredCountryNames
+        let english = Locale(identifier: "en_US")
+        for region in Locale.Region.isoRegions {
+            let locale = Locale(identifier: "en_" + region.identifier)
+            guard let code = locale.currency?.identifier,
+                  let name = english.localizedString(forRegionCode: region.identifier) else { continue }
+            if !(result[code] ?? []).contains(name) { result[code, default: []].append(name) }
+        }
+        result["EUR"] = Array(Set((result["EUR"] ?? []) + ["Bulgaria", "Croatia"])).sorted()
+        result["GGP"] = ["Guernsey"]
+        result["JEP"] = ["Jersey"]
+        result["IMP"] = ["Isle of Man"]
+        result["XCG"] = ["Curaçao", "Sint Maarten"]
+        result["ZWG"] = ["Zimbabwe"]
+        result["CNH"] = ["China (offshore)"]
+        return result
+    }()
+    private static let preferredCountryNames: [String: [String]] = [
         "USD": ["United States"], "CAD": ["Canada"], "MXN": ["Mexico"],
         "EUR": ["Germany", "France", "Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus", "Estonia", "Finland", "Greece", "Ireland", "Italy", "Latvia", "Lithuania", "Luxembourg", "Malta", "Netherlands", "Portugal", "Slovakia", "Slovenia", "Spain", "Andorra", "Monaco", "San Marino", "Vatican City", "Montenegro", "Kosovo"],
         "JPY": ["Japan"], "TWD": ["Taiwan"], "KRW": ["South Korea"],
@@ -45,17 +80,35 @@ struct Currency: Identifiable, Hashable {
         "SGD": ["Singapore"], "THB": ["Thailand"], "INR": ["India"],
         "PHP": ["Philippines"], "IDR": ["Indonesia"]
     ]
-    static let all: [Currency] = [
+    static let all: [Currency] = {
+        // Travel currencies; exclude replaced money, metals and accounting units.
+        let excluded: Set<String> = ["ANG", "MRO", "SVC", "CMD", "XDR", "XAU", "XAG", "XPD", "XPT"]
+        var entries = Dictionary(uniqueKeysWithValues: common.map { ($0.code, $0) })
+        for entry in catalogue where !excluded.contains(entry.code) {
+            if entries[entry.code] == nil {
+                entries[entry.code] = Currency(code: entry.code, name: entry.name, aliases: alternateNames[entry.code] ?? "")
+            }
+        }
+        return entries.values.sorted { $0.code < $1.code }
+    }()
+    private static let alternateNames: [String: String] = [
+        "TRY": "Turkey Türkiye Turkish lira", "CZK": "Czech Republic Czechia",
+        "SZL": "Swaziland Eswatini", "MMK": "Burma Myanmar",
+        "CVE": "Cape Verde Cabo Verde", "XOF": "Ivory Coast Cote d Ivoire",
+        "MOP": "Macau Macao", "SLE": "Sierra Leone", "STN": "Sao Tome Principe",
+        "KRW": "South Korea", "KPW": "North Korea"
+    ]
+    private static let common: [Currency] = [
         .init(code: "USD", name: "US dollar", aliases: "USA United States America"),
         .init(code: "CAD", name: "Canadian dollar", aliases: "Canada"),
-        .init(code: "MXN", name: "Mexican peso", aliases: "Mexico México"),
+        .init(code: "MXN", name: "Mexican peso", aliases: "Mexico MÃ©xico"),
         .init(code: "EUR", name: "Euro", aliases: "Europe Eurozone Croatia France Germany Italy Spain Portugal Austria Belgium Netherlands Ireland Greece Finland"),
         .init(code: "JPY", name: "Japanese yen", aliases: "Japan"),
         .init(code: "TWD", name: "New Taiwan dollar", aliases: "Taiwan"),
         .init(code: "KRW", name: "South Korean won", aliases: "South Korea"),
         .init(code: "HKD", name: "Hong Kong dollar", aliases: "Hong Kong"),
         .init(code: "CNY", name: "Chinese yuan", aliases: "Mainland China RMB renminbi"),
-        .init(code: "VND", name: "Vietnamese dong", aliases: "Vietnam Việt Nam"),
+        .init(code: "VND", name: "Vietnamese dong", aliases: "Vietnam Viá»‡t Nam"),
         .init(code: "GBP", name: "Pound sterling", aliases: "United Kingdom UK Britain England Scotland Wales Northern Ireland"),
         .init(code: "AED", name: "UAE dirham", aliases: "United Arab Emirates Dubai Abu Dhabi"),
         .init(code: "QAR", name: "Qatari riyal", aliases: "Qatar"),
