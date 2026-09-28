@@ -10,15 +10,22 @@ struct ConverterView: View {
     @StateObject private var saved = SavedConversions()
     @State private var draft: SavedConversion?
     @State private var showsSaved = false
-    @FocusState private var editing: Bool
+    @FocusState private var editingSide: AmountSide?
+    private var editing: Bool { editingSide != nil }
 
     var body: some View {
         NavigationStack {
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        VStack(spacing: 10) {
+                    VStack(alignment: .leading, spacing: editing ? 12 : 18) {
+                        VStack(spacing: editing ? 6 : 10) {
                             amountCard(source: true)
+                            Button { editingSide = nil; store.swap() } label: {
+                                Image(systemName: "arrow.up.arrow.down")
+                                    .font(.title3.weight(.semibold)).frame(width: 48, height: 44)
+                                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 8))
+                                    .foregroundStyle(.white)
+                            }.accessibilityLabel("Swap currencies")
                             amountCard(source: false)
                         }.id("amounts")
 
@@ -41,7 +48,7 @@ struct ConverterView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) { Button { showsAbout = true } label: { Image(systemName: "info.circle") }.accessibilityLabel("About rates and privacy") }
-                ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Done") { editing = false } }
+                ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Done") { editingSide = nil } }
             }
             .sheet(item: $picker) { side in CurrencyPicker(store: store, title: side == .target ? "Search currency" : "Convert from", select: { code in
                 if side == .source { store.source = code } else { store.target = code }; picker = nil
@@ -56,18 +63,8 @@ struct ConverterView: View {
 
     private func amountCard(source: Bool) -> some View {
         let code = source ? store.source : store.target
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                currencyButton(code, side: source ? .source : .target)
-                if source {
-                    Button { store.swap() } label: {
-                        Image(systemName: "arrow.up.arrow.down")
-                            .font(.headline).frame(width: 44, height: 44)
-                            .background(Color.blue, in: RoundedRectangle(cornerRadius: 8))
-                            .foregroundStyle(.white)
-                    }.accessibilityLabel("Swap currencies")
-                }
-            }
+        return VStack(alignment: .leading, spacing: editing ? 6 : 14) {
+            currencyButton(code, side: source ? .source : .target)
             if !source {
                 Rectangle().fill(Color.blue.opacity(0.35)).frame(height: 1)
             }
@@ -75,21 +72,18 @@ struct ConverterView: View {
                 Text(Currency.named(code).symbol)
                     .font(.title2.weight(.medium)).foregroundStyle(.secondary)
                     .fixedSize().accessibilityHidden(true)
-                if source {
-                    TextField("Amount", text: $store.amount)
-                        .font(.system(size: 36, weight: .medium)).monospacedDigit()
-                        .keyboardType(.decimalPad).focused($editing)
-                        .accessibilityLabel("Amount to convert in \(Currency.named(code).name)")
-                } else {
-                    Text(store.result).font(.system(size: 36, weight: .semibold))
-                        .monospacedDigit().minimumScaleFactor(0.4).lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .accessibilityLabel("Converted amount: \(store.result) \(code)")
-                        .textSelection(.enabled)
-                }
+                TextField("Amount", text: Binding(
+                    get: { store.fieldText(for: source ? .source : .target,
+                                           focused: editingSide == (source ? .source : .target)) },
+                    set: { store.edit($0, side: source ? .source : .target) }
+                ))
+                .font(.system(size: editing ? 36 : 44, weight: source ? .medium : .semibold))
+                .monospacedDigit().keyboardType(.decimalPad)
+                .focused($editingSide, equals: source ? .source : .target)
+                .accessibilityLabel("\(source ? "From" : "To") amount in \(Currency.named(code).name)")
             }
         }
-        .padding(14)
+        .padding(editing ? 12 : 20)
         .background(source ? Color(uiColor: .secondarySystemBackground) : Color.blue.opacity(0.10),
                     in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12)
@@ -166,7 +160,7 @@ struct ConverterView: View {
     }
 
     private func currencyButton(_ code: String, side: PickerSide) -> some View {
-        Button { editing = false; picker = side } label: {
+        Button { editingSide = nil; picker = side } label: {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(side == .source ? "From" : "To").font(.caption).foregroundStyle(.secondary)

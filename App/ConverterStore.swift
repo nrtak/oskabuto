@@ -1,12 +1,15 @@
 import Foundation
 import SwiftUI
 
+enum AmountSide: String { case source, target }
+
 @MainActor
 final class ConverterStore: ObservableObject {
     @Published var source: String { didSet { preferences.set(source, forKey: "source") } }
     @Published var target: String { didSet { preferences.set(target, forKey: "target") } }
     @Published var favorites: [String] { didSet { preferences.set(favorites, forKey: "favorites") } }
     @Published var amount: String { didSet { preferences.set(amount, forKey: "amount") } }
+    @Published private(set) var inputSide: AmountSide { didSet { preferences.set(inputSide.rawValue, forKey: "inputSide") } }
     @Published private(set) var snapshot: RateSnapshot?
     @Published private(set) var isLoading = false
     @Published private(set) var updateFailed = false
@@ -26,6 +29,7 @@ final class ConverterStore: ObservableObject {
         source = codes.contains(savedSource) ? savedSource : "USD"
         target = codes.contains(savedTarget) ? savedTarget : "EUR"
         amount = preferences.string(forKey: "amount") ?? "100"
+        inputSide = AmountSide(rawValue: preferences.string(forKey: "inputSide") ?? "source") ?? .source
         var seen = Set<String>()
         favorites = (preferences.stringArray(forKey: "favorites") ?? ["EUR", "JPY", "GBP", "CAD"])
             .filter { codes.contains($0) && seen.insert($0).inserted }
@@ -39,10 +43,29 @@ final class ConverterStore: ObservableObject {
     }
 
     func result(for code: String) -> String {
-        guard let value = Amount.parse(amount) else { return "—" }
-        if source == code { return Amount.format(value, currency: .named(code)) }
-        guard let multiplier = snapshot?.multiplier(from: source, to: code) else { return "—" }
-        return Amount.format(value * multiplier, currency: .named(code))
+        guard let value = value(for: code) else { return "—" }
+        return Amount.format(value, currency: .named(code))
+    }
+
+    func value(for code: String) -> Decimal? {
+        guard let value = Amount.parse(amount) else { return nil }
+        let inputCode = inputSide == .source ? source : target
+        if inputCode == code { return value }
+        guard let multiplier = snapshot?.multiplier(from: inputCode, to: code) else { return nil }
+        return value * multiplier
+    }
+
+    func edit(_ text: String, side: AmountSide) {
+        inputSide = side
+        amount = text
+    }
+
+    func fieldText(for side: AmountSide, focused: Bool) -> String {
+        if side == inputSide { return amount }
+        let code = side == .source ? source : target
+        guard let value = value(for: code) else { return "" }
+        let formatted = Amount.format(value, currency: .named(code))
+        return focused ? formatted.replacingOccurrences(of: Locale.current.groupingSeparator ?? ",", with: "") : formatted
     }
 
     var detail: String {
@@ -69,16 +92,21 @@ final class ConverterStore: ObservableObject {
     }
 
     func savedDraft() -> SavedConversion? {
-        guard let value = Amount.parse(amount),
+        guard let value = value(for: source), let converted = value(for: target),
               let multiplier = source == target ? Decimal(1) : snapshot?.multiplier(from: source, to: target) else { return nil }
         return SavedConversion(id: UUID(), savedAt: Date(), source: source, target: target,
-                               amount: value, multiplier: multiplier, convertedAmount: value * multiplier,
+                               amount: value, multiplier: multiplier, convertedAmount: converted,
                                rateDates: source == target ? [] : snapshot?.dates(from: source, to: target) ?? [],
                                ratesCheckedAt: source == target ? nil : snapshot?.fetchedAt,
                                note: "", photoFilename: nil)
     }
 
-    func swap() { let old = source; source = target; target = old }
+    func swap() {
+        let old = source
+        source = target
+        target = old
+        inputSide = inputSide == .source ? .target : .source
+    }
     func toggleFavorite(_ code: String) {
         if favorites.contains(code) { favorites.removeAll { $0 == code } } else { favorites.append(code) }
     }
