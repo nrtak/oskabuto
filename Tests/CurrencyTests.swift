@@ -75,6 +75,67 @@ final class CurrencyTests: XCTestCase {
     }
 
     @MainActor
+    func testEditingEitherAmountPersistsAndSavesWithoutRoundingDrift() async throws {
+        let suite = "SimpleCurrencyTests-\(UUID().uuidString)"
+        let preferences = UserDefaults(suiteName: suite)!
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let url = directory.appendingPathComponent("rates.json")
+        defer { preferences.removePersistentDomain(forName: suite); try? FileManager.default.removeItem(at: directory) }
+        let store = ConverterStore(preferences: preferences, cacheURL: url, service: StubService(snapshot: snapshot))
+        await store.refresh(force: true)
+        store.source = "USD"
+        store.target = "EUR"
+        store.edit("25", side: .source)
+        XCTAssertEqual(store.value(for: "EUR"), 20)
+        store.edit("18", side: .target)
+        XCTAssertEqual(store.value(for: "USD"), Decimal(string: "22.5"))
+        XCTAssertEqual(store.value(for: "EUR"), 18)
+        let saved = try XCTUnwrap(store.savedDraft())
+        XCTAssertEqual(saved.amount, Decimal(string: "22.5"))
+        XCTAssertEqual(saved.convertedAmount, 18)
+        let reopened = ConverterStore(preferences: preferences, cacheURL: url, service: FailedService())
+        XCTAssertEqual(reopened.inputSide, .target)
+        XCTAssertEqual(reopened.amount, "18")
+        XCTAssertEqual(reopened.value(for: "USD"), Decimal(string: "22.5"))
+        reopened.swap()
+        XCTAssertEqual(reopened.source, "EUR")
+        XCTAssertEqual(reopened.inputSide, .source)
+        XCTAssertEqual(reopened.value(for: "USD"), Decimal(string: "22.5"))
+        reopened.swap()
+        XCTAssertEqual(reopened.value(for: "EUR"), 18)
+        XCTAssertEqual(reopened.fieldText(for: .source, focused: true), Amount.format(Decimal(string: "22.5")!, currency: .named("USD")))
+        reopened.edit("", side: .target)
+        XCTAssertNil(reopened.value(for: "USD"))
+        XCTAssertNil(reopened.savedDraft())
+        reopened.edit("0", side: .target)
+        XCTAssertEqual(reopened.value(for: "USD"), 0)
+    }
+
+    @MainActor
+    func testReverseInputWithMissingRatesAndCurrencyChanges() async throws {
+        let suite = "SimpleCurrencyTests-\(UUID().uuidString)"
+        let preferences = UserDefaults(suiteName: suite)!
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { preferences.removePersistentDomain(forName: suite); try? FileManager.default.removeItem(at: directory) }
+        let store = ConverterStore(preferences: preferences, cacheURL: directory.appendingPathComponent("rates.json"), service: StubService(snapshot: snapshot))
+        store.source = "USD"
+        store.target = "EUR"
+        store.edit("80", side: .target)
+        XCTAssertNil(store.value(for: "USD"))
+        XCTAssertEqual(store.value(for: "EUR"), 80)
+        XCTAssertNil(store.savedDraft())
+        await store.refresh(force: true)
+        XCTAssertEqual(store.value(for: "USD"), 100)
+        store.target = "JPY"
+        XCTAssertEqual(store.value(for: "USD"), Decimal(string: "0.5"))
+        store.source = "JPY"
+        XCTAssertEqual(store.value(for: "JPY"), 80)
+        XCTAssertEqual(store.savedDraft()?.convertedAmount, 80)
+        store.edit("invalid", side: .source)
+        XCTAssertNil(store.savedDraft())
+    }
+
+    @MainActor
     func testOfflineCacheAndFailedRefresh() async throws {
         let suite = "SimpleCurrencyTests-\(UUID().uuidString)"
         let preferences = UserDefaults(suiteName: suite)!
