@@ -4,7 +4,6 @@ private enum PickerSide: String, Identifiable { case source, target; var id: Str
 
 struct ConverterView: View {
     @ObservedObject var store: ConverterStore
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
     @State private var picker: PickerSide?
     @State private var showsAbout = false
@@ -13,93 +12,33 @@ struct ConverterView: View {
     @State private var showsSaved = false
     @FocusState private var editing: Bool
 
-    private var blue: Color { Color(uiColor: .secondarySystemBackground) }
-    private var yellow: Color { Color(uiColor: .secondarySystemBackground) }
-
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+            ScrollViewReader { proxy in
+                ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("From").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-                        currencyButton(store.source, side: .source)
-                        TextField("Amount", text: $store.amount)
-                            .font(.system(size: 44, weight: .medium))
-                            .keyboardType(.decimalPad).focused($editing)
-                            .accessibilityLabel("Amount to convert")
-                    }.padding(22).background(yellow, in: RoundedRectangle(cornerRadius: 24))
+                        VStack(spacing: 10) {
+                            amountCard(source: true)
+                            amountCard(source: false)
+                        }.id("amounts")
 
-                    HStack { Spacer(); Button { editing = false; store.swap() } label: {
-                        Image(systemName: "arrow.up.arrow.down").font(.title3.weight(.semibold))
-                            .frame(width: 48, height: 48).background(Color.blue, in: RoundedRectangle(cornerRadius: 8))
-                            .foregroundStyle(.white)
-                    }.accessibilityLabel("Swap currencies"); Spacer() }.padding(.vertical, -12)
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("To").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-                        currencyButton(store.target, side: .target)
-                        Text(store.result).font(.system(size: 44, weight: .medium))
-                            .monospacedDigit().minimumScaleFactor(0.4).lineLimit(1)
-                            .accessibilityLabel("Converted amount: \(store.result) \(store.target)")
-                            .textSelection(.enabled)
-                    }.padding(22).frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 24))
-                        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color(uiColor: .separator).opacity(0.4), lineWidth: 1))
-
-                    VStack(spacing: 7) {
-                        Text(store.detail)
-                        if let checked = store.lastChecked { Text(checked).font(.caption2) }
-                        if store.updateFailed {
-                            Label(store.snapshot == nil ? "Couldn’t load rates. Try again when connected." : "Couldn’t refresh. Showing saved rates.", systemImage: "wifi.slash")
+                        if !editing {
+                            rateDetails
+                            saveButtons
+                            favorites
+                            Text("Reference rates by Frankfurter · Bank and card rates may differ.")
+                                .font(.caption2).foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity).multilineTextAlignment(.center)
                         }
-                        if store.cacheWriteFailed { Text("Rates loaded, but couldn’t save for offline use.") }
-                        Button { Task { await store.refresh(force: true) } } label: {
-                            HStack { if store.isLoading { ProgressView() }; Text(store.isLoading ? "Refreshing…" : "Refresh rates") }
-                        }.disabled(store.isLoading).frame(minHeight: 44)
-                    }.font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity).multilineTextAlignment(.center)
-
-                    HStack(spacing: 12) {
-                        Button { editing = false; draft = store.savedDraft() } label: {
-                            Label("Save conversion", systemImage: "bookmark").frame(minHeight: 44)
-                        }.buttonStyle(.borderedProminent).buttonBorderShape(.roundedRectangle(radius: 8))
-                            .disabled(store.savedDraft() == nil || saved.loadError != nil)
-                        Button { editing = false; showsSaved = true } label: {
-                            Text("Saved (\(saved.items.count))").frame(minHeight: 44)
-                        }.buttonStyle(.bordered).buttonBorderShape(.roundedRectangle(radius: 8))
-                    }
-
-                    HStack {
-                        Text("Favorites").font(.headline)
-                        Spacer()
-                        Button { editing = false; picker = .target } label: { Label("Search", systemImage: "magnifyingglass") }.frame(minHeight: 44)
-                    }
-                    VStack(spacing: 0) {
-                        ForEach(store.favorites, id: \.self) { code in
-                            Button { store.target = code; editing = false } label: {
-                                HStack(spacing: 12) {
-                                    Text(currencySymbol(code)).font(.title3.weight(.medium))
-                                        .frame(width: 38, height: 38)
-                                        .background(store.target == code ? Color.blue : blue, in: Circle())
-                                        .foregroundStyle(store.target == code ? Color.white : Color.blue)
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(Currency.named(code).name).font(.subheadline.weight(.medium))
-                                        Text("\(code) · \(Currency.named(code).countryLabel)").font(.caption).foregroundStyle(.secondary)
-                                    }
-                                    Spacer(minLength: 8)
-                                    Text(store.result(for: code)).font(.subheadline.weight(.medium)).monospacedDigit()
-                                }.foregroundStyle(.primary).frame(minHeight: 60).contentShape(Rectangle())
-                            }.buttonStyle(.plain).accessibilityLabel("Convert to \(Currency.named(code).name)")
-                                .accessibilityAddTraits(store.target == code ? [.isSelected] : [])
-                            Divider()
-                        }
-                    }
-                    if store.favorites.isEmpty { Text("Star currencies in Search to keep them here.").font(.caption).foregroundStyle(.secondary) }
-                    Text("Reference rates by Frankfurter\nBank and card rates may differ.")
-                        .font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity).padding(.top, 14)
-                }.padding(20)
+                    }.padding(.horizontal, 16).padding(.vertical, 8)
+                }
+                .scrollDismissesKeyboard(.interactively)
+                .onChange(of: editing) { _, active in
+                    if active { proxy.scrollTo("amounts", anchor: .top) }
+                }
             }
-            .navigationTitle("Simple Currency")
+            .navigationTitle("Convert Currency")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) { Button { showsAbout = true } label: { Image(systemName: "info.circle") }.accessibilityLabel("About rates and privacy") }
                 ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Done") { editing = false } }
@@ -115,24 +54,133 @@ struct ConverterView: View {
         }
     }
 
-    private func currencyButton(_ code: String, side: PickerSide) -> some View {
-        Button { editing = false; picker = side } label: {
-            HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(code).font(.headline)
-                        Text("Click to change").font(.caption).foregroundStyle(.blue)
-                    }
-                    Text(Currency.named(code).name).font(.subheadline).foregroundStyle(.secondary)
-                    Text(Currency.named(code).countryLabel).font(.caption).foregroundStyle(.secondary)
+    private func amountCard(source: Bool) -> some View {
+        let code = source ? store.source : store.target
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                currencyButton(code, side: source ? .source : .target)
+                if source {
+                    Button { store.swap() } label: {
+                        Image(systemName: "arrow.up.arrow.down")
+                            .font(.headline).frame(width: 44, height: 44)
+                            .background(Color.blue, in: RoundedRectangle(cornerRadius: 8))
+                            .foregroundStyle(.white)
+                    }.accessibilityLabel("Swap currencies")
                 }
-                Spacer()
-            }.foregroundStyle(.primary).frame(minHeight: 44).contentShape(Rectangle())
-        }.buttonStyle(.plain).accessibilityLabel("\(side == .source ? "From" : "To"): \(Currency.named(code).name), \(Currency.named(code).countryLabel). Change currency")
+            }
+            if !source {
+                Rectangle().fill(Color.blue.opacity(0.35)).frame(height: 1)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(Currency.named(code).symbol)
+                    .font(.title2.weight(.medium)).foregroundStyle(.secondary)
+                    .fixedSize().accessibilityHidden(true)
+                if source {
+                    TextField("Amount", text: $store.amount)
+                        .font(.system(size: 36, weight: .medium)).monospacedDigit()
+                        .keyboardType(.decimalPad).focused($editing)
+                        .accessibilityLabel("Amount to convert in \(Currency.named(code).name)")
+                } else {
+                    Text(store.result).font(.system(size: 36, weight: .semibold))
+                        .monospacedDigit().minimumScaleFactor(0.4).lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityLabel("Converted amount: \(store.result) \(code)")
+                        .textSelection(.enabled)
+                }
+            }
+        }
+        .padding(14)
+        .background(source ? Color(uiColor: .secondarySystemBackground) : Color.blue.opacity(0.10),
+                    in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12)
+            .stroke(source ? Color.clear : Color.blue.opacity(0.55), lineWidth: 1.5))
     }
 
-    private func currencySymbol(_ code: String) -> String {
-        ["USD": "$", "CAD": "$", "EUR": "€", "GBP": "£", "JPY": "¥", "CNY": "¥", "KRW": "₩", "INR": "₹"][code] ?? String(code.prefix(1))
+    private var rateDetails: some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(store.detail)
+                if let checked = store.lastChecked { Text(checked) }
+                if store.updateFailed {
+                    Label(store.snapshot == nil ? "Couldn’t load rates. Try again when connected." : "Couldn’t refresh. Showing saved rates.", systemImage: "wifi.slash")
+                }
+                if store.cacheWriteFailed { Text("Rates loaded, but couldn’t save for offline use.") }
+            }.font(.caption2).foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+            Button { Task { await store.refresh(force: true) } } label: {
+                Group {
+                    if store.isLoading { ProgressView() }
+                    else { Image(systemName: "arrow.clockwise") }
+                }.frame(width: 44, height: 44)
+            }.disabled(store.isLoading).accessibilityLabel("Refresh rates")
+        }
+    }
+
+    private var saveButtons: some View {
+        HStack(spacing: 10) {
+            Button { draft = store.savedDraft() } label: {
+                Label("Save conversion", systemImage: "bookmark")
+                    .frame(maxWidth: .infinity, minHeight: 32)
+            }.buttonStyle(.borderedProminent).buttonBorderShape(.roundedRectangle(radius: 8))
+                .disabled(store.savedDraft() == nil || saved.loadError != nil)
+            Button { showsSaved = true } label: {
+                Text("Saved (\(saved.items.count))").frame(minHeight: 32)
+            }.buttonStyle(.bordered).buttonBorderShape(.roundedRectangle(radius: 8))
+        }.font(.subheadline)
+    }
+
+    private var favorites: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Favorites").font(.subheadline.weight(.semibold))
+                Spacer()
+                Button { picker = .target } label: {
+                    Label("Search", systemImage: "magnifyingglass")
+                }.font(.subheadline).frame(minHeight: 44)
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(store.favorites, id: \.self) { code in
+                        Button { store.target = code } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(code).font(.subheadline.weight(.semibold))
+                                Text(Currency.named(code).countryLabel).font(.caption2)
+                                    .foregroundStyle(.secondary).lineLimit(1)
+                                Text("\(Currency.named(code).symbol) \(store.result(for: code))")
+                                    .font(.subheadline.weight(.medium)).monospacedDigit()
+                                    .lineLimit(1).minimumScaleFactor(0.5)
+                            }.frame(width: 132, alignment: .leading).padding(10)
+                                .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+                                .overlay(RoundedRectangle(cornerRadius: 8)
+                                    .stroke(store.target == code ? Color.blue : Color.clear, lineWidth: 1.5))
+                        }.buttonStyle(.plain)
+                            .accessibilityLabel("Convert to \(Currency.named(code).name), \(store.result(for: code)) \(code)")
+                            .accessibilityAddTraits(store.target == code ? [.isSelected] : [])
+                    }
+                }.padding(2)
+            }
+            if store.favorites.isEmpty {
+                Text("Star currencies in Search to keep them here.").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func currencyButton(_ code: String, side: PickerSide) -> some View {
+        Button { editing = false; picker = side } label: {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(side == .source ? "From" : "To").font(.caption).foregroundStyle(.secondary)
+                    Text(code).font(.headline)
+                    Text("Click to change").font(.caption).foregroundStyle(.blue)
+                }
+                if !editing {
+                    Text(Currency.named(code).name).font(.caption).foregroundStyle(.secondary)
+                }
+                Text(Currency.named(code).countryLabel).font(.caption).foregroundStyle(.secondary)
+                    .lineLimit(editing ? 1 : 2)
+            }.foregroundStyle(.primary).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+        }.buttonStyle(.plain).accessibilityLabel("\(side == .source ? "From" : "To"): \(Currency.named(code).name), \(Currency.named(code).countryLabel). Change currency")
     }
 
     private var about: some View {

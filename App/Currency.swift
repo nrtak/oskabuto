@@ -5,6 +5,13 @@ struct Currency: Identifiable, Hashable {
     let name: String
     let aliases: String
     var id: String { code }
+    var symbol: String {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "en_US")
+        formatter.numberStyle = .currency
+        formatter.currencyCode = code
+        return formatter.currencySymbol ?? code
+    }
     var countries: [String] { Self.countryNames[code] ?? [] }
     var countryLabel: String {
         if countries.count <= 2 { return countries.joined(separator: " · ") }
