@@ -18,7 +18,7 @@ struct ConverterView: View {
             GeometryReader { geometry in
               ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
+                    ConverterPageLayout(availableHeight: max(0, geometry.size.height - 16), expandsCards: !editing) {
                         VStack(spacing: 6) {
                             amountCard(source: true)
                             HStack(spacing: 8) {
@@ -48,7 +48,6 @@ struct ConverterView: View {
                                 .font(.caption).foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                             favorites
-                            Spacer(minLength: 0)
                             VStack(spacing: 0) {
                                 Text("Reference rates by Frankfurter · Bank and card rates may differ.")
                                     .font(.caption2).foregroundStyle(.secondary)
@@ -60,7 +59,6 @@ struct ConverterView: View {
                             }
                         }
                     }
-                    .frame(minHeight: max(0, geometry.size.height - 16), alignment: .top)
                     .padding(.horizontal, 16).padding(.vertical, 8)
                 }
                 .scrollDismissesKeyboard(.interactively)
@@ -87,7 +85,7 @@ struct ConverterView: View {
 
     private func amountCard(source: Bool) -> some View {
         let code = source ? store.source : store.target
-        return VStack(alignment: .leading, spacing: editing ? 6 : 10) {
+        return VStack(alignment: .leading, spacing: 6) {
             currencyButton(code, side: source ? .source : .target)
             if !source {
                 Rectangle().fill(Color.blue.opacity(0.35)).frame(height: 1)
@@ -107,7 +105,8 @@ struct ConverterView: View {
                 .accessibilityLabel("\(source ? "From" : "To") amount in \(Currency.named(code).name)")
             }
         }
-        .padding(editing ? 12 : 16)
+        .frame(maxHeight: .infinity, alignment: .center)
+        .padding(12)
         .background(source ? Color(uiColor: .secondarySystemBackground) : Color.blue.opacity(0.10),
                     in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12)
@@ -156,18 +155,20 @@ struct ConverterView: View {
                     Label("Search", systemImage: "magnifyingglass")
                 }.font(.subheadline).frame(minHeight: 44)
             }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
                     ForEach(store.favorites, id: \.self) { code in
                         Button { store.target = code } label: {
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 2) {
+                              HStack(spacing: 4) {
                                 Text(code).font(.subheadline.weight(.semibold))
-                                Text(Currency.named(code).countryLabel).font(.caption2)
-                                    .foregroundStyle(.secondary).lineLimit(1)
+                                Spacer(minLength: 0)
                                 Text("\(Currency.named(code).symbol) \(store.result(for: code))")
                                     .font(.subheadline.weight(.medium)).monospacedDigit()
-                                    .lineLimit(1).minimumScaleFactor(0.5)
-                            }.frame(width: 132, alignment: .leading).padding(10)
+                                    .lineLimit(1).minimumScaleFactor(0.65)
+                              }
+                                Text(Currency.named(code).countryLabel).font(.caption2)
+                                    .foregroundStyle(.secondary).lineLimit(1)
+                            }.frame(maxWidth: .infinity, minHeight: 36, alignment: .leading).padding(8)
                                 .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
                                 .overlay(RoundedRectangle(cornerRadius: 8)
                                     .stroke(store.target == code ? Color.blue : Color.clear, lineWidth: 1.5))
@@ -176,7 +177,6 @@ struct ConverterView: View {
                             .accessibilityAddTraits(store.target == code ? [.isSelected] : [])
                     }
                 }.padding(2)
-            }
             if store.favorites.isEmpty {
                 Text("Star currencies in Search to keep them here.").font(.caption).foregroundStyle(.secondary)
             }
@@ -189,13 +189,11 @@ struct ConverterView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(side == .source ? "From" : "To").font(.caption).foregroundStyle(.secondary)
-                        Text(code).font(.headline)
+                        (Text(code).fontWeight(.semibold) + Text(" (\(Currency.named(code).name))"))
+                            .font(.subheadline).lineLimit(1).minimumScaleFactor(0.65)
                     }
                     Text(Currency.named(code).countryLabel).font(.headline)
                         .lineLimit(editing ? 1 : 2)
-                    if !editing {
-                        Text(Currency.named(code).name).font(.caption).foregroundStyle(.secondary)
-                    }
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 Label("Search", systemImage: "magnifyingglass")
                     .font(.subheadline.weight(.semibold)).foregroundStyle(.blue)
@@ -219,6 +217,35 @@ struct ConverterView: View {
                 Section("Currency search") { Text("Search the full travel currency catalogue by country, currency name or code. Favorites appear first. Croatia uses EUR; Tahiti and Bora Bora use XPF. Availability depends on the rate provider; unavailable conversions show a dash.") }
             }.navigationTitle("About").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showsAbout = false } } }
+        }
+    }
+}
+
+private struct ConverterPageLayout: Layout {
+    let availableHeight: CGFloat
+    let expandsCards: Bool
+    private let spacing: CGFloat = 8
+
+    private func heights(width: CGFloat, subviews: Subviews) -> [CGFloat] {
+        subviews.map { $0.sizeThatFits(ProposedViewSize(width: width, height: nil)).height }
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? 320
+        let naturalHeight = heights(width: width, subviews: subviews).reduce(0, +)
+            + spacing * CGFloat(max(0, subviews.count - 1))
+        return CGSize(width: width, height: expandsCards ? max(availableHeight, naturalHeight) : naturalHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var sizes = heights(width: bounds.width, subviews: subviews)
+        let naturalHeight = sizes.reduce(0, +) + spacing * CGFloat(max(0, sizes.count - 1))
+        if expandsCards, !sizes.isEmpty { sizes[0] += max(0, bounds.height - naturalHeight) }
+        var y = bounds.minY
+        for (index, subview) in subviews.enumerated() {
+            subview.place(at: CGPoint(x: bounds.minX, y: y), anchor: .topLeading,
+                          proposal: ProposedViewSize(width: bounds.width, height: sizes[index]))
+            y += sizes[index] + spacing
         }
     }
 }
