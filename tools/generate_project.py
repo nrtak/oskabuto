@@ -3,6 +3,7 @@ import hashlib
 import plistlib
 import os
 import re
+import json
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / 'PrivacyGuard.xcodeproj'
@@ -14,6 +15,7 @@ BUNDLE_ID = os.environ.get('APP_BUNDLE_ID', 'com.example.privacyguard')
 GROUP_ID = os.environ.get('APP_GROUP_ID', 'group.' + BUNDLE_ID + '.privacyguard')
 BUILD_NUMBER = os.environ.get('APP_BUILD_NUMBER', '1')
 TEAM_ID = os.environ.get('APPLE_TEAM_ID', '')
+SIGNING = json.loads(Path(os.environ['APP_SIGNING_CONFIG']).read_text()) if os.environ.get('APP_SIGNING_CONFIG') else {}
 assert re.fullmatch(r'[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+', BUNDLE_ID)
 assert re.fullmatch(r'group\.[A-Za-z0-9.-]+', GROUP_ID)
 assert re.fullmatch(r'[0-9]+(?:\.[0-9]+){0,2}', BUILD_NUMBER)
@@ -82,6 +84,11 @@ for name in target_ids:
     configs = []
     for mode in ['Debug', 'Release']:
         mode_settings = dict(settings, SWIFT_OPTIMIZATION_LEVEL='-Onone' if mode == 'Debug' else '-O')
+        if mode == 'Release' and SIGNING:
+            profile = SIGNING[name]
+            assert re.fullmatch(r'[A-Fa-f0-9-]{36}', profile)
+            mode_settings.update(CODE_SIGN_STYLE='Manual', CODE_SIGN_IDENTITY='Apple Distribution',
+                                 PROVISIONING_PROFILE_SPECIFIER=profile)
         if mode == 'Debug':
             mode_settings['SWIFT_ACTIVE_COMPILATION_CONDITIONS'] = 'DEBUG'
         configs.append(obj('config:' + name + mode, 'XCBuildConfiguration', name=mode, buildSettings=mode_settings))
