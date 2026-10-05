@@ -60,11 +60,11 @@ for name in target_ids:
     group = obj('group:' + name, 'PBXGroup', children=refs, name=name, sourceTree='<group>')
     product = obj('product:' + name, 'PBXFileReference', explicitFileType='wrapper.application' if is_app else 'wrapper.app-extension', includeInIndex='0', path=name + ('.app' if is_app else '.appex'), sourceTree='BUILT_PRODUCTS_DIR')
     products.append(product)
-    info = dict(CFBundleDevelopmentRegion='$(DEVELOPMENT_LANGUAGE)', CFBundleExecutable='$(EXECUTABLE_NAME)', CFBundleIdentifier='$(PRODUCT_BUNDLE_IDENTIFIER)', CFBundleInfoDictionaryVersion='6.0', CFBundleName='$(PRODUCT_NAME)', CFBundlePackageType='APPL' if is_app else 'XPC!', CFBundleShortVersionString='1.0', CFBundleVersion=BUILD_NUMBER)
+    info = dict(CFBundleDevelopmentRegion='$(DEVELOPMENT_LANGUAGE)', CFBundleExecutable='$(EXECUTABLE_NAME)', CFBundleIdentifier='$(PRODUCT_BUNDLE_IDENTIFIER)', CFBundleInfoDictionaryVersion='6.0', CFBundleName='$(PRODUCT_NAME)', CFBundleDisplayName='Kabuto Call Protection' if name == 'CallDirectory' else 'Kabuto Message Filter', CFBundlePackageType='APPL' if is_app else 'XPC!', CFBundleShortVersionString='1.0', CFBundleVersion=BUILD_NUMBER)
     if name != 'MessageFilter':
         info['ProtectionAppGroup'] = GROUP_ID
     if is_app:
-        info.update(CFBundleDisplayName='Kabuto', UILaunchScreen={}, NSCameraUsageDescription='Scan QR codes locally before opening them.', UISupportedInterfaceOrientations=['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'])
+        info.update(CFBundleDisplayName='Kabuto', UILaunchScreen={}, NSCameraUsageDescription='Scan QR codes locally before opening them.', UISupportedInterfaceOrientations=['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationPortraitUpsideDown', 'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'])
     else:
         info['NSExtension'] = dict(NSExtensionPointIdentifier='com.apple.callkit.call-directory' if name == 'CallDirectory' else 'com.apple.identitylookup.message-filter', NSExtensionPrincipalClass='$(PRODUCT_MODULE_NAME).' + ('CallDirectoryHandler' if name == 'CallDirectory' else 'MessageFilterHandler'))
     info_path = plist(name + '-Info.plist', info)
