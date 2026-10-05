@@ -33,14 +33,16 @@ struct HomeView: View {
     @EnvironmentObject var state: AppState
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Image("AppMark").resizable().scaledToFit().frame(width: 72, height: 72).clipShape(RoundedRectangle(cornerRadius: 16)).accessibilityHidden(true)
-                    Text("Your privacy.\nYour control.").font(.largeTitle.bold())
-                    Text("Small checks for a safer day. Your data stays with you.").font(.callout)
-                }.frame(maxWidth: .infinity, alignment: .leading).padding(24)
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    Image("AppMark").resizable().scaledToFit().frame(width: 52, height: 52).clipShape(RoundedRectangle(cornerRadius: 12)).accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Kabuto Mobile Security").font(.title3.bold()).fixedSize(horizontal: false, vertical: true)
+                        Text("Your privacy. Your control.").font(.subheadline)
+                    }
+                }.frame(maxWidth: .infinity, alignment: .leading).padding(16)
                     .foregroundStyle(.white).background(LinearGradient(colors: [Color(red: 0.12, green: 0.20, blue: 0.32), Color(red: 0.20, green: 0.34, blue: 0.52)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 24))
-                Text("Protection overview").font(.title2.bold())
+                Text("Protection overview").font(.headline)
                 VStack(spacing: 0) {
                     status("Call Directory", state.callStatus, "phone")
                     Divider()
@@ -50,19 +52,23 @@ struct HomeView: View {
                     Divider()
                     status("VPN", "Unknown • check Settings", "lock.shield")
                 }.padding(.horizontal).background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
-                Text("iOS does not expose a reliable global VPN status here. Review Settings → VPN. Each status describes only that feature; no safety guarantee.").font(.caption).foregroundStyle(.secondary)
-                Text("Check something suspicious").font(.title2.bold())
-                NavigationLink { CheckerView() } label: { tool("Link Checker", "Inspect a destination without visiting it", "link") }
-                NavigationLink { CheckerView(qrMode: true) } label: { tool("QR Safety Scanner", "Scan first. Decide before opening.", "qrcode.viewfinder") }
-                NavigationLink { PrivacyChecksView() } label: { tool("Privacy Review", "Guided browser and device checks", "checklist") }
-            }.padding(20)
-        }.background(Color(.systemGroupedBackground)).navigationTitle("Kabuto")
+                Text("Guided and unknown statuses need review in Settings. Statuses are not a safety guarantee.").font(.caption).foregroundStyle(.secondary)
+                Text("Safety tools").font(.headline)
+                VStack(spacing: 0) {
+                    NavigationLink { CheckerView() } label: { tool("Link Checker", "Inspect without opening", "link") }
+                    Divider()
+                    NavigationLink { CheckerView(qrMode: true) } label: { tool("QR Safety Scanner", "Scan before opening", "qrcode.viewfinder") }
+                    Divider()
+                    NavigationLink { PrivacyChecksView() } label: { tool("Privacy Review", "Browser and device checks", "checklist") }
+                }.background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+            }.padding(16)
+        }.background(Color(.systemGroupedBackground)).navigationTitle("Home").navigationBarTitleDisplayMode(.inline)
     }
     private func status(_ title: String, _ detail: String, _ symbol: String) -> some View {
-        HStack(spacing: 14) { Image(systemName: symbol).foregroundStyle(.blue).frame(width: 24); VStack(alignment: .leading, spacing: 4) { Text(title).font(.headline); Text(detail).font(.caption).foregroundStyle(.secondary) }; Spacer() }.padding(.vertical, 16)
+        HStack(spacing: 12) { Image(systemName: symbol).foregroundStyle(.blue).frame(width: 24); VStack(alignment: .leading, spacing: 2) { Text(title).font(.subheadline.bold()); Text(detail).font(.caption).foregroundStyle(.secondary) }; Spacer() }.padding(.vertical, 8).frame(minHeight: 44)
     }
     private func tool(_ title: String, _ detail: String, _ symbol: String) -> some View {
-        HStack(spacing: 14) { Image(systemName: symbol).font(.title2).foregroundStyle(.blue).frame(width: 30); VStack(alignment: .leading, spacing: 4) { Text(title).font(.headline).foregroundStyle(.primary); Text(detail).font(.caption).foregroundStyle(.secondary) }; Spacer(); Image(systemName: "chevron.right").foregroundStyle(.secondary) }.padding(18).background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18))
+        HStack(spacing: 12) { Image(systemName: symbol).font(.title3).foregroundStyle(.blue).frame(width: 26); VStack(alignment: .leading, spacing: 2) { Text(title).font(.subheadline.bold()).foregroundStyle(.primary); Text(detail).font(.caption).foregroundStyle(.secondary) }; Spacer(); Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary) }.padding(.horizontal, 14).padding(.vertical, 10).frame(minHeight: 44)
     }
 }
 
@@ -76,7 +82,7 @@ struct ProtectionView: View {
             Section("Future integration") {
                 Text("Live Caller ID: unavailable in this MVP. Requires Apple capability approval and a compatible private lookup service. No live or reputation lookup is performed.")
             }
-        }.navigationTitle("Protection")
+        }.navigationTitle("Protection").navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -152,7 +158,7 @@ struct ActivityView: View {
             Text(state.dontSave ? "Don't Save Activity is on. No activity is retained." : "Local tool summaries only, capped at 100. No calls, messages, URLs, or QR contents.")
             ForEach(state.activities) { item in VStack(alignment: .leading) { Text(item.summary); Text(item.date, style: .date).font(.caption) } }
             if !state.activities.isEmpty { Button("Delete all activity", role: .destructive) { state.clear() } }
-        }.navigationTitle("Activity")
+        }.navigationTitle("Activity").navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -170,7 +176,7 @@ struct SettingsView: View {
                 Text("Weekly is selected by default. Tap to allow notifications and schedule it. Delivery depends on iOS notification settings.").font(.caption)
             }
             Section { Text("No accounts, ads, analytics, breach searches, reverse lookup, cloud history, or VPN service.") }
-        }.navigationTitle("Settings")
+        }.navigationTitle("Settings").navigationBarTitleDisplayMode(.inline)
     }
 }
 
