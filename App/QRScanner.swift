@@ -1,19 +1,28 @@
 import SwiftUI
 import VisionKit
+import AVFoundation
 
 struct QRScanner: View {
     let onScan: (String) -> Void
     @Environment(\.dismiss) private var dismiss
+    @State private var cameraGranted = false
     var body: some View {
         NavigationStack {
             Group {
-                if DataScannerViewController.isSupported && DataScannerViewController.isAvailable {
+                if cameraGranted && DataScannerViewController.isSupported && DataScannerViewController.isAvailable {
                     CameraScanner(onScan: onScan)
                 } else {
                     ContentUnavailableView("Camera unavailable", systemImage: "camera", description: Text("Allow camera access in Settings, use a supported device, or paste QR contents in the checker. The simulator cannot scan."))
                 }
             }.navigationTitle("Scan without opening")
                 .toolbar { Button("Cancel") { dismiss() } }
+                .task {
+                    let status = AVCaptureDevice.authorizationStatus(for: .video)
+                    cameraGranted = status == .authorized
+                    if status == .notDetermined {
+                        cameraGranted = await AVCaptureDevice.requestAccess(for: .video)
+                    }
+                }
         }
     }
 }
