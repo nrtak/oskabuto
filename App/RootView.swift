@@ -44,13 +44,13 @@ struct HomeView: View {
                     .foregroundStyle(.white).background(LinearGradient(colors: [Color(red: 0.12, green: 0.20, blue: 0.32), Color(red: 0.20, green: 0.34, blue: 0.52)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 24))
                 Text("Protection overview").font(.headline)
                 VStack(spacing: 0) {
-                    status("Call Directory", state.callStatus, "phone")
+                    NavigationLink { CallsView() } label: { status("Call Directory", state.callStatus, "phone") }.buttonStyle(.plain)
                     Divider()
-                    status("Message filter", "Guided • check Settings", "message")
+                    NavigationLink { MessageDemoView() } label: { status("Message filter", "Guided • check Settings", "message") }.buttonStyle(.plain)
                     Divider()
-                    status("Secure DNS", "Guided • check installed profile", "network")
+                    NavigationLink { DNSView() } label: { status("Secure DNS", "Guided • check installed profile", "network") }.buttonStyle(.plain)
                     Divider()
-                    status("VPN", "Unknown • check Settings", "lock.shield")
+                    NavigationLink { VPNReviewView() } label: { status("VPN", "Unknown • check Settings", "lock.shield") }.buttonStyle(.plain)
                 }.padding(.horizontal).background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
                 Text("Guided and unknown statuses need review in Settings. Statuses are not a safety guarantee.").font(.caption).foregroundStyle(.secondary)
                 Text("Safety tools").font(.headline)
@@ -65,10 +65,10 @@ struct HomeView: View {
         }.background(Color(.systemGroupedBackground)).navigationTitle("Home").navigationBarTitleDisplayMode(.inline)
     }
     private func status(_ title: String, _ detail: String, _ symbol: String) -> some View {
-        HStack(spacing: 12) { Image(systemName: symbol).foregroundStyle(.blue).frame(width: 24); VStack(alignment: .leading, spacing: 2) { Text(title).font(.subheadline.bold()); Text(detail).font(.caption).foregroundStyle(.secondary) }; Spacer() }.padding(.vertical, 8).frame(minHeight: 44)
+        HStack(spacing: 12) { Image(systemName: symbol).foregroundStyle(.blue).frame(width: 24); VStack(alignment: .leading, spacing: 2) { Text(title).font(.subheadline.bold()); Text(detail).font(.caption).foregroundStyle(.secondary) }; Spacer(); Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary) }.padding(.vertical, 8).frame(minHeight: 44).contentShape(Rectangle())
     }
     private func tool(_ title: String, _ detail: String, _ symbol: String) -> some View {
-        HStack(spacing: 12) { Image(systemName: symbol).font(.title3).foregroundStyle(.blue).frame(width: 26); VStack(alignment: .leading, spacing: 2) { Text(title).font(.subheadline.bold()).foregroundStyle(.primary); Text(detail).font(.caption).foregroundStyle(.secondary) }; Spacer(); Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary) }.padding(.horizontal, 14).padding(.vertical, 10).frame(minHeight: 44)
+        HStack(spacing: 12) { Image(systemName: symbol).font(.title3).foregroundStyle(.blue).frame(width: 26); VStack(alignment: .leading, spacing: 2) { Text(title).font(.subheadline.bold()).foregroundStyle(.primary); Text(detail).font(.caption).foregroundStyle(.secondary) }; Spacer(); Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary) }.padding(.horizontal, 14).padding(.vertical, 10).frame(minHeight: 44).contentShape(Rectangle())
     }
 }
 
@@ -188,5 +188,17 @@ struct PrivacyChecksView: View {
             Text("Guided checks. This app cannot read these settings or verify their values. Review marks are session-only self-reports.")
             ForEach(checks, id: \.self) { check in Button { if reviewed.contains(check) { reviewed.remove(check) } else { reviewed.insert(check) } } label: { Label(check + (reviewed.contains(check) ? " • Reviewed by you" : " • Not reviewed"), systemImage: reviewed.contains(check) ? "checkmark.circle" : "circle") } }
         }.navigationTitle("Privacy Checks")
+    }
+}
+
+struct VPNReviewView: View {
+    var body: some View {
+        List {
+            Section("Status: unknown") {
+                Text("iOS does not provide Kabuto with a reliable global VPN status.")
+                Text("Open Settings → General → VPN & Device Management → VPN to review your connection and installed configurations.")
+            }
+            Text("Kabuto does not provide a VPN service or change your VPN connection.")
+        }.navigationTitle("VPN Status").navigationBarTitleDisplayMode(.inline)
     }
 }
