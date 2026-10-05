@@ -61,11 +61,15 @@ class AppleAPI:
         except HTTPError as error:
             # Never log raw responses, bearer tokens, keys or certificate contents.
             try:
-                codes = [e.get('code', '') for e in json.loads(error.read()).get('errors', [])]
+                errors = json.loads(error.read()).get('errors', [])
+                codes = [e.get('code', '') for e in errors]
+                parameters = [e.get('source', {}).get('parameter', '') for e in errors]
             except (ValueError, TypeError):
-                codes = []
+                codes, parameters = [], []
             safe_codes = ','.join(c for c in codes if re.fullmatch(r'[A-Za-z0-9_.-]+', c))
+            safe_parameters = ','.join(p for p in parameters if re.fullmatch(r'[A-Za-z0-9_\[\].-]{1,128}', p))
             raise RuntimeError(f'Apple signing API {request.get_method()} {parsed.path}: HTTP {error.code} ({safe_codes}). '
+                               f'Parameter: {safe_parameters or "unspecified"}. '
                                'Check the existing key permissions and Apple Developer setup.') from None
 
     def listing(self, path, filters=None):
@@ -127,7 +131,7 @@ def main():
         bundle_resource = bundles[0]
         required_group = group if target != 'MessageFilter' else None
         if required_group:
-            capabilities = api.listing('/v1/bundleIds/' + bundle_resource['id'] + '/bundleIdCapabilities')
+            capabilities = api.request('/v1/bundleIds/' + bundle_resource['id'] + '/bundleIdCapabilities')['data']
             if not any(c['attributes']['capabilityType'] == 'APP_GROUPS' for c in capabilities):
                 api.request('/v1/bundleIdCapabilities', {'data': {'type': 'bundleIdCapabilities',
                     'attributes': {'capabilityType': 'APP_GROUPS'}, 'relationships': {'bundleId': {
