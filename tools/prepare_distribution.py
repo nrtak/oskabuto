@@ -122,20 +122,7 @@ def main():
     profiles, installed = {}, []
     for target in ['PrivacyGuard', 'CallDirectory', 'MessageFilter']:
         bundle = base + ('' if target == 'PrivacyGuard' else '.' + target)
-        bundles = api.listing('/v1/bundleIds', {'filter[identifier]': bundle, 'filter[platform]': 'IOS'})
-        if not bundles:
-            if target == 'PrivacyGuard':
-                raise RuntimeError('Existing app bundle identifier was not found; refusing to replace the app record.')
-            bundles = [api.request('/v1/bundleIds', {'data': {'type': 'bundleIds', 'attributes': {
-                'identifier': bundle, 'name': 'PrivacyGuard ' + target, 'platform': 'IOS'}}})['data']]
-        bundle_resource = bundles[0]
         required_group = group if target != 'MessageFilter' else None
-        if required_group:
-            capabilities = api.request('/v1/bundleIds/' + bundle_resource['id'] + '/bundleIdCapabilities')['data']
-            if not any(c['attributes']['capabilityType'] == 'APP_GROUPS' for c in capabilities):
-                api.request('/v1/bundleIdCapabilities', {'data': {'type': 'bundleIdCapabilities',
-                    'attributes': {'capabilityType': 'APP_GROUPS'}, 'relationships': {'bundleId': {
-                        'data': {'type': 'bundleIds', 'id': bundle_resource['id']}}}}})
         name = 'PrivacyGuard App Store ' + target
         candidates = api.listing('/v1/profiles', {'filter[name]': name})
         data, decoded = None, None
@@ -150,14 +137,9 @@ def main():
                 data, decoded = blob, candidate_profile
                 break
         if data is None:
-            created = api.request('/v1/profiles', {'data': {'type': 'profiles',
-                'attributes': {'name': name, 'profileType': 'IOS_APP_STORE'}, 'relationships': {
-                    'bundleId': {'data': {'type': 'bundleIds', 'id': bundle_resource['id']}},
-                    'certificates': {'data': [{'type': 'certificates', 'id': cert['id']}]}}}})['data']
-            data = base64.b64decode(created['attributes']['profileContent'])
-            candidate_path = temp / 'PrivacyGuard-candidate.mobileprovision'
-            candidate_path.write_bytes(data)
-            decoded = decode_profile(candidate_path)
+            raise RuntimeError(f'No valid App Store profile named {name} was found for {bundle}. '
+                               'Regenerate it in Apple Developer with the existing distribution certificate '
+                               'and required App Group, then rerun this workflow.')
         if not valid_profile(decoded, bundle, certificate_hash, required_group):
             if required_group and required_group not in decoded.get('Entitlements', {}).get('com.apple.security.application-groups', []):
                 raise RuntimeError(f'Register App Group {group} in Apple Developer and assign it to '
