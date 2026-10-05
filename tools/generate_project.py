@@ -64,7 +64,7 @@ for name in target_ids:
     if name != 'MessageFilter':
         info['ProtectionAppGroup'] = GROUP_ID
     if is_app:
-        info.update(CFBundleDisplayName='Privacy Guard', UILaunchScreen={}, NSCameraUsageDescription='Scan QR codes locally before opening them.', UISupportedInterfaceOrientations=['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'])
+        info.update(CFBundleDisplayName='Kabuto', UILaunchScreen={}, NSCameraUsageDescription='Scan QR codes locally before opening them.', UISupportedInterfaceOrientations=['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'])
     else:
         info['NSExtension'] = dict(NSExtensionPointIdentifier='com.apple.callkit.call-directory' if name == 'CallDirectory' else 'com.apple.identitylookup.message-filter', NSExtensionPrincipalClass='$(PRODUCT_MODULE_NAME).' + ('CallDirectoryHandler' if name == 'CallDirectory' else 'MessageFilterHandler'))
     info_path = plist(name + '-Info.plist', info)
