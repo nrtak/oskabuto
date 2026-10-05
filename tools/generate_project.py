@@ -1,6 +1,8 @@
 from pathlib import Path
 import hashlib
 import plistlib
+import os
+import re
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / 'PrivacyGuard.xcodeproj'
@@ -8,6 +10,13 @@ CONFIG = ROOT / 'Configuration'
 CONFIG.mkdir(exist_ok=True)
 OUT.mkdir(exist_ok=True)
 objects = {}
+BUNDLE_ID = os.environ.get('APP_BUNDLE_ID', 'com.example.privacyguard')
+GROUP_ID = os.environ.get('APP_GROUP_ID', 'group.' + BUNDLE_ID + '.privacyguard')
+BUILD_NUMBER = os.environ.get('APP_BUILD_NUMBER', '1')
+TEAM_ID = os.environ.get('APPLE_TEAM_ID', '')
+assert re.fullmatch(r'[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+', BUNDLE_ID)
+assert re.fullmatch(r'group\.[A-Za-z0-9.-]+', GROUP_ID)
+assert re.fullmatch(r'[0-9]+(?:\.[0-9]+){0,2}', BUILD_NUMBER)
 
 def ident(key):
     return hashlib.sha256(key.encode()).hexdigest()[:24].upper()
@@ -49,15 +58,25 @@ for name in target_ids:
     group = obj('group:' + name, 'PBXGroup', children=refs, name=name, sourceTree='<group>')
     product = obj('product:' + name, 'PBXFileReference', explicitFileType='wrapper.application' if is_app else 'wrapper.app-extension', includeInIndex='0', path=name + ('.app' if is_app else '.appex'), sourceTree='BUILT_PRODUCTS_DIR')
     products.append(product)
-    info = dict(CFBundleDevelopmentRegion='$(DEVELOPMENT_LANGUAGE)', CFBundleExecutable='$(EXECUTABLE_NAME)', CFBundleIdentifier='$(PRODUCT_BUNDLE_IDENTIFIER)', CFBundleInfoDictionaryVersion='6.0', CFBundleName='$(PRODUCT_NAME)', CFBundlePackageType='APPL' if is_app else 'XPC!', CFBundleShortVersionString='1.0', CFBundleVersion='1')
+    info = dict(CFBundleDevelopmentRegion='$(DEVELOPMENT_LANGUAGE)', CFBundleExecutable='$(EXECUTABLE_NAME)', CFBundleIdentifier='$(PRODUCT_BUNDLE_IDENTIFIER)', CFBundleInfoDictionaryVersion='6.0', CFBundleName='$(PRODUCT_NAME)', CFBundlePackageType='APPL' if is_app else 'XPC!', CFBundleShortVersionString='1.0', CFBundleVersion=BUILD_NUMBER)
+    if name != 'MessageFilter':
+        info['ProtectionAppGroup'] = GROUP_ID
     if is_app:
         info.update(CFBundleDisplayName='Privacy Guard', UILaunchScreen={}, NSCameraUsageDescription='Scan QR codes locally before opening them.', UISupportedInterfaceOrientations=['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'])
     else:
         info['NSExtension'] = dict(NSExtensionPointIdentifier='com.apple.callkit.call-directory' if name == 'CallDirectory' else 'com.apple.identitylookup.message-filter', NSExtensionPrincipalClass='$(PRODUCT_MODULE_NAME).' + ('CallDirectoryHandler' if name == 'CallDirectory' else 'MessageFilterHandler'))
     info_path = plist(name + '-Info.plist', info)
     settings = dict(PRODUCT_BUNDLE_IDENTIFIER='com.example.privacyguard' + ('' if is_app else '.' + name), PRODUCT_NAME='$(TARGET_NAME)', INFOPLIST_FILE=info_path, SWIFT_VERSION='5.0', IPHONEOS_DEPLOYMENT_TARGET='17.0', TARGETED_DEVICE_FAMILY='1,2', CODE_SIGN_STYLE='Automatic', SDKROOT='iphoneos', LD_RUNPATH_SEARCH_PATHS=['$(inherited)', '@executable_path/Frameworks'] + ([] if is_app else ['@executable_path/../../Frameworks']), GENERATE_INFOPLIST_FILE='NO')
+    settings['PRODUCT_BUNDLE_IDENTIFIER'] = BUNDLE_ID + ('' if is_app else '.' + name)
+    settings['CURRENT_PROJECT_VERSION'] = BUILD_NUMBER
+    if TEAM_ID:
+        settings['DEVELOPMENT_TEAM'] = TEAM_ID
+    if is_app:
+        info['ITSAppUsesNonExemptEncryption'] = False
+        info_path = plist(name + '-Info.plist', info)
     if name != 'MessageFilter':
-        settings['CODE_SIGN_ENTITLEMENTS'] = plist(name + '.entitlements', {'com.apple.security.application-groups': ['group.com.example.privacyguard']})
+        settings['REGISTER_APP_GROUPS'] = 'YES'
+        settings['CODE_SIGN_ENTITLEMENTS'] = plist(name + '.entitlements', {'com.apple.security.application-groups': [GROUP_ID]})
     if not is_app:
         settings.update(APPLICATION_EXTENSION_API_ONLY='YES', SKIP_INSTALL='YES')
     configs = []
@@ -92,7 +111,8 @@ product_group = obj('products', 'PBXGroup', children=products, name='Products', 
 main_group = obj('main', 'PBXGroup', children=[ident('group:' + name) for name in target_ids] + [product_group], sourceTree='<group>')
 project_configs = [obj('project-config:' + mode, 'XCBuildConfiguration', name=mode, buildSettings={'CLANG_ENABLE_MODULES': 'YES'}) for mode in ['Debug', 'Release']]
 project_config_list = obj('project-configs', 'XCConfigurationList', buildConfigurations=project_configs, defaultConfigurationIsVisible='0', defaultConfigurationName='Release')
-project = obj('project', 'PBXProject', attributes={'LastUpgradeCheck': '1600'}, buildConfigurationList=project_config_list, compatibilityVersion='Xcode 14.0', developmentRegion='en', knownRegions=['en', 'Base'], mainGroup=main_group, productRefGroup=product_group, projectDirPath='', projectRoot='', targets=targets)
+target_attributes = {target_ids[name]: {'SystemCapabilities': {'com.apple.ApplicationGroups.iOS': {'enabled': '1'}}} for name in ['PrivacyGuard', 'CallDirectory']}
+project = obj('project', 'PBXProject', attributes={'LastUpgradeCheck': '1600', 'TargetAttributes': target_attributes}, buildConfigurationList=project_config_list, compatibilityVersion='Xcode 14.0', developmentRegion='en', knownRegions=['en', 'Base'], mainGroup=main_group, productRefGroup=product_group, projectDirPath='', projectRoot='', targets=targets)
 content = '// !$*UTF8*$!\n' + serialize(dict(archiveVersion='1', classes={}, objectVersion='56', objects=objects, rootObject=project)) + '\n'
 (OUT / 'project.pbxproj').write_text(content, encoding='utf-8')
 scheme_dir = OUT / 'xcshareddata' / 'xcschemes'

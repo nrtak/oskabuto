@@ -8,7 +8,7 @@ struct CallEntry: Codable, Identifiable {
 }
 
 enum CallStore {
-    static let group = "group.com.example.privacyguard"
+    static let group = Bundle.main.object(forInfoDictionaryKey: "ProtectionAppGroup") as? String ?? "group.com.example.privacyguard"
     static var file: URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group)?.appendingPathComponent("calls.json")
     }

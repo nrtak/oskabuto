@@ -19,7 +19,7 @@ struct ActivityItem: Codable, Identifiable {
     } }
     @Published var cadence: Int { didSet { UserDefaults.standard.set(cadence, forKey: "cadence") } }
     private let activityURL: URL
-    static let extensionID = "com.example.privacyguard.CallDirectory"
+    static let extensionID = (Bundle.main.bundleIdentifier ?? "com.example.privacyguard") + ".CallDirectory"
 
     init() {
         dontSave = UserDefaults.standard.object(forKey: "dontSave") as? Bool ?? true

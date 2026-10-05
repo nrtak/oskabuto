@@ -1,0 +1,114 @@
+name: Upload to TestFlight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testflight-upload
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+      APP_BUNDLE_ID: ${{ vars.APP_BUNDLE_ID }}
+      APP_BUILD_NUMBER: 1000.${{ github.run_number }}.${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Verify release inputs
+        env:
+          CERT: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          ASC_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          for name in APPLE_TEAM_ID APP_BUNDLE_ID CERT P12_PASSWORD ASC_PRIVATE_KEY ASC_KEY_ID ASC_ISSUER_ID; do
+            if [ -z "${!name}" ]; then echo "::error::Missing release input: $name"; exit 1; fi
+          done
+          xcodebuild -version
+      - name: Generate and verify release project
+        run: python3 tools/verify_project.py
+      - name: Test local safety rules
+        run: swift test
+      - name: Verify unsigned app and extensions
+        run: |
+          xcodebuild -project PrivacyGuard.xcodeproj -scheme PrivacyGuard \
+            -configuration Release -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/SimulatorBuild" CODE_SIGNING_ALLOWED=NO build
+      - name: Prepare signing credentials
+        env:
+          CERT: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          ASC_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          KEYCHAIN="$RUNNER_TEMP/PrivacyGuard-signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 32)
+          echo "::add-mask::$KEYCHAIN_PASSWORD"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          printf '%s' "$CERT" | base64 --decode > "$RUNNER_TEMP/PrivacyGuard-cert.p12"
+          security import "$RUNNER_TEMP/PrivacyGuard-cert.p12" -P "$P12_PASSWORD" -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" "$HOME/Library/Keychains/login.keychain-db"
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          printf '%s' "$ASC_PRIVATE_KEY" > "$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          chmod 600 "$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+      - name: Archive signed app and extensions
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          xcodebuild -project PrivacyGuard.xcodeproj -scheme PrivacyGuard \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/PrivacyGuard.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" archive
+      - name: Export App Store build
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, plistlib
+          from pathlib import Path
+          options = {'method': 'app-store-connect', 'destination': 'export', 'teamID': os.environ['APPLE_TEAM_ID'], 'signingStyle': 'automatic', 'manageAppVersionAndBuildNumber': False}
+          (Path(os.environ['RUNNER_TEMP']) / 'PrivacyGuard-ExportOptions.plist').write_bytes(plistlib.dumps(options))
+          PY
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/PrivacyGuard.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/PrivacyGuard-ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/PrivacyGuard-export" -allowProvisioningUpdates \
+            -authenticationKeyPath "$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+      - name: Upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          xcrun altool --upload-app --type ios --file "$RUNNER_TEMP/PrivacyGuard-export/PrivacyGuard.ipa" \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+      - name: Remove signing credentials
+        if: always()
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+        run: |
+          security delete-keychain "$RUNNER_TEMP/PrivacyGuard-signing.keychain-db" || true
+          rm -f "$RUNNER_TEMP/PrivacyGuard-cert.p12"
+          if [ -n "$ASC_KEY_ID" ]; then rm -f "$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"; fi
