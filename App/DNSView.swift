@@ -41,7 +41,7 @@ struct DNSView: View {
             }
             Section("Guided installation") {
                 if choice == .system {
-                    Text("Remove any Privacy Guard DNS profile in Settings → General → VPN & Device Management. Selecting System Default here does not change system DNS.")
+                    Text("Remove any Kabuto DNS profile in Settings → General → VPN & Device Management. Selecting System Default here does not change system DNS.")
                 } else {
                     Button("Prepare DNS profile") {
                         do { profile = try DNSProfile.create(name: choice.rawValue, endpoint: choice == .custom ? custom : choice.endpoint) }
@@ -74,7 +74,7 @@ enum DNSProfile {
         let container: [String: Any] = [
             "PayloadType": "Configuration", "PayloadVersion": 1,
             "PayloadIdentifier": "com.example.privacyguard.dns", "PayloadUUID": UUID().uuidString,
-            "PayloadDisplayName": "Privacy Guard DNS", "PayloadDescription": "User-selected encrypted DNS. Remove this profile to restore network DNS.",
+            "PayloadDisplayName": "Kabuto DNS", "PayloadDescription": "User-selected encrypted DNS. Remove this profile to restore network DNS.",
             "PayloadContent": [payload]
         ]
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("PrivacyGuard-DNS.mobileconfig")

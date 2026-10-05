@@ -25,7 +25,7 @@ struct RootView: View {
             }.interactiveDismissDisabled()
         }
         .onChange(of: scenePhase) { _, phase in if phase == .active { state.refreshCalls() } }
-        .alert("Privacy Guard", isPresented: Binding(get: { !state.notice.isEmpty }, set: { if !$0 { state.notice = "" } })) { Button("OK") { state.notice = "" } } message: { Text(state.notice) }
+        .alert("Kabuto", isPresented: Binding(get: { !state.notice.isEmpty }, set: { if !$0 { state.notice = "" } })) { Button("OK") { state.notice = "" } } message: { Text(state.notice) }
     }
 }
 
@@ -56,7 +56,7 @@ struct HomeView: View {
                 NavigationLink { CheckerView(qrMode: true) } label: { tool("QR Safety Scanner", "Scan first. Decide before opening.", "qrcode.viewfinder") }
                 NavigationLink { PrivacyChecksView() } label: { tool("Privacy Review", "Guided browser and device checks", "checklist") }
             }.padding(20)
-        }.background(Color(.systemGroupedBackground)).navigationTitle("Privacy Guard")
+        }.background(Color(.systemGroupedBackground)).navigationTitle("Kabuto")
     }
     private func status(_ title: String, _ detail: String, _ symbol: String) -> some View {
         HStack(spacing: 14) { Image(systemName: symbol).foregroundStyle(.blue).frame(width: 24); VStack(alignment: .leading, spacing: 4) { Text(title).font(.headline); Text(detail).font(.caption).foregroundStyle(.secondary) }; Spacer() }.padding(.vertical, 16)
@@ -88,7 +88,7 @@ struct CallsView: View {
     var body: some View {
         Form {
             Section("Status") { Text(state.callStatus); Button("Refresh status") { state.refreshCalls() }
-                Text("Enable Privacy Guard in Settings → Apps → Phone → Call Blocking & Identification. The app cannot read incoming calls or call history.") }
+                Text("Enable Kabuto in Settings → Apps → Phone → Call Blocking & Identification. The app cannot read incoming calls or call history.") }
             Section("Local call list") {
                 TextField("Country code + number (e.g. +14155550123)", text: $number).keyboardType(.phonePad)
                 TextField("Caller label", text: $label)
@@ -113,7 +113,7 @@ struct MessageDemoView: View {
     @State private var result = ""
     var body: some View {
         Form {
-            Text("Guided status: enable Privacy Guard under Settings → Apps → Messages → Unknown & Spam. iOS provides no enabled-status query for this filter. It applies to eligible unknown-sender SMS/MMS, not iMessage or third-party apps.")
+            Text("Guided status: enable Kabuto under Settings → Apps → Messages → Unknown & Spam. iOS provides no enabled-status query for this filter. It applies to eligible unknown-sender SMS/MMS, not iMessage or third-party apps.")
             Section("Try the on-device rules") {
                 TextEditor(text: $text).frame(minHeight: 120)
                 Button("Test classification") { result = SafetyEngine.isJunk(text) ? "Junk: urgency plus a link or sensitive/payment request." : "No filter decision: passed back to iOS. This does not prove legitimacy." }
