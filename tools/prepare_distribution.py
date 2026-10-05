@@ -65,11 +65,11 @@ class AppleAPI:
             except (ValueError, TypeError):
                 codes = []
             safe_codes = ','.join(c for c in codes if re.fullmatch(r'[A-Za-z0-9_.-]+', c))
-            raise RuntimeError(f'Apple signing API HTTP {error.code} ({safe_codes}). '
+            raise RuntimeError(f'Apple signing API {request.get_method()} {parsed.path}: HTTP {error.code} ({safe_codes}). '
                                'Check the existing key permissions and Apple Developer setup.') from None
 
     def listing(self, path, filters=None):
-        path += '?' + urlencode({'limit': 200, **(filters or {})})
+        path += '?' + urlencode({'limit': 50, **(filters or {})})
         items = []
         while path:
             result = self.request(path)
@@ -133,9 +133,11 @@ def main():
                     'attributes': {'capabilityType': 'APP_GROUPS'}, 'relationships': {'bundleId': {
                         'data': {'type': 'bundleIds', 'id': bundle_resource['id']}}}}})
         name = 'PrivacyGuard App Store ' + target
-        candidates = api.listing('/v1/profiles', {'filter[name]': name, 'filter[profileType]': 'IOS_APP_STORE'})
+        candidates = api.listing('/v1/profiles', {'filter[name]': name})
         data, decoded = None, None
         for candidate in candidates:
+            if candidate['attributes']['profileType'] != 'IOS_APP_STORE':
+                continue
             blob = base64.b64decode(candidate['attributes']['profileContent'])
             candidate_path = temp / 'PrivacyGuard-candidate.mobileprovision'
             candidate_path.write_bytes(blob)
