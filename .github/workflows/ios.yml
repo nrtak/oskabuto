@@ -1,0 +1,54 @@
+name: iOS Prototype
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prototype:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Generate and verify Xcode project
+        run: python3 tools/verify_project.py
+      - name: Show selected Apple toolchain
+        run: xcodebuild -version
+      - name: Test local safety rules
+        run: swift test
+      - name: Build simulator prototype and extensions
+        run: |
+          xcodebuild \
+            -project PrivacyGuard.xcodeproj \
+            -scheme PrivacyGuard \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/DerivedData \
+            -resultBundlePath build/BuildResults.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+      - name: Upload simulator app
+        uses: actions/upload-artifact@v4
+        with:
+          name: PrivacyGuard-simulator
+          path: build/DerivedData/Build/Products/Debug-iphonesimulator/PrivacyGuard.app
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload Xcode diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xcode-build-diagnostics
+          path: build/BuildResults.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
