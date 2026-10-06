@@ -25,13 +25,13 @@ for identity, record in objects.items():
                 with (root / settings[key]).open('rb') as handle:
                     plistlib.load(handle)
 targets = [value for value in objects.values() if value['isa'] == 'PBXNativeTarget']
-assert len(targets) == 3
+assert len(targets) == 4
 for target in targets:
     phases = [objects[phase] for phase in target['buildPhases']]
     assert any(phase['isa'] == 'PBXSourcesBuildPhase' and phase['files'] for phase in phases)
 app = next(target for target in targets if target['name'] == 'PrivacyGuard')
-assert len(app['dependencies']) == 2
-assert len(next(objects[p] for p in app['buildPhases'] if objects[p]['isa'] == 'PBXCopyFilesBuildPhase')['files']) == 2
+assert len(app['dependencies']) == 3
+assert len(next(objects[p] for p in app['buildPhases'] if objects[p]['isa'] == 'PBXCopyFilesBuildPhase')['files']) == 3
 ET.parse(root / 'PrivacyGuard.xcodeproj/xcshareddata/xcschemes/PrivacyGuard.xcscheme')
 assert 'NSExtension' in plistlib.loads((root / 'Configuration/MessageFilter-Info.plist').read_bytes())
 assert 'com.apple.developer.networking.networkextension' not in (root / 'Configuration/PrivacyGuard.entitlements').read_text()

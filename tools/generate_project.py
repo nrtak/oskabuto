@@ -45,7 +45,7 @@ def plist(name, content):
 
 targets = []
 products = []
-target_ids = {name: ident('target:' + name) for name in ['PrivacyGuard', 'CallDirectory', 'MessageFilter']}
+target_ids = {name: ident('target:' + name) for name in ['PrivacyGuard', 'CallDirectory', 'MessageFilter', 'ShareLink']}
 
 for name in target_ids:
     is_app = name == 'PrivacyGuard'
@@ -61,12 +61,15 @@ for name in target_ids:
     product = obj('product:' + name, 'PBXFileReference', explicitFileType='wrapper.application' if is_app else 'wrapper.app-extension', includeInIndex='0', path=name + ('.app' if is_app else '.appex'), sourceTree='BUILT_PRODUCTS_DIR')
     products.append(product)
     info = dict(CFBundleDevelopmentRegion='$(DEVELOPMENT_LANGUAGE)', CFBundleExecutable='$(EXECUTABLE_NAME)', CFBundleIdentifier='$(PRODUCT_BUNDLE_IDENTIFIER)', CFBundleInfoDictionaryVersion='6.0', CFBundleName='$(PRODUCT_NAME)', CFBundleDisplayName='Kabuto Call Protection' if name == 'CallDirectory' else 'Kabuto Message Filter', CFBundlePackageType='APPL' if is_app else 'XPC!', CFBundleShortVersionString='1.0', CFBundleVersion=BUILD_NUMBER)
-    if name != 'MessageFilter':
+    if name in ['PrivacyGuard', 'CallDirectory']:
         info['ProtectionAppGroup'] = GROUP_ID
     if is_app:
         info.update(CFBundleDisplayName='Kabuto', UILaunchScreen={}, NSCameraUsageDescription='Scan QR codes locally before opening them.', UISupportedInterfaceOrientations=['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationPortraitUpsideDown', 'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'])
     else:
         info['NSExtension'] = dict(NSExtensionPointIdentifier='com.apple.callkit.call-directory' if name == 'CallDirectory' else 'com.apple.identitylookup.message-filter', NSExtensionPrincipalClass='$(PRODUCT_MODULE_NAME).' + ('CallDirectoryHandler' if name == 'CallDirectory' else 'MessageFilterHandler'))
+    if name == 'ShareLink':
+        info['CFBundleDisplayName'] = 'Check with Kabuto'
+        info['NSExtension'] = dict(NSExtensionPointIdentifier='com.apple.share-services', NSExtensionPrincipalClass='$(PRODUCT_MODULE_NAME).ShareViewController', NSExtensionAttributes={'NSExtensionActivationRule': {'NSExtensionActivationSupportsWebURLWithMaxCount': 1, 'NSExtensionActivationSupportsText': True}})
     info_path = plist(name + '-Info.plist', info)
     settings = dict(PRODUCT_BUNDLE_IDENTIFIER='com.example.privacyguard' + ('' if is_app else '.' + name), PRODUCT_NAME='$(TARGET_NAME)', INFOPLIST_FILE=info_path, SWIFT_VERSION='5.0', IPHONEOS_DEPLOYMENT_TARGET='17.0', TARGETED_DEVICE_FAMILY='1,2', CODE_SIGN_STYLE='Automatic', SDKROOT='iphoneos', LD_RUNPATH_SEARCH_PATHS=['$(inherited)', '@executable_path/Frameworks'] + ([] if is_app else ['@executable_path/../../Frameworks']), GENERATE_INFOPLIST_FILE='NO')
     settings['PRODUCT_BUNDLE_IDENTIFIER'] = BUNDLE_ID + ('' if is_app else '.' + name)
@@ -76,7 +79,7 @@ for name in target_ids:
     if is_app:
         info['ITSAppUsesNonExemptEncryption'] = False
         info_path = plist(name + '-Info.plist', info)
-    if name != 'MessageFilter':
+    if name in ['PrivacyGuard', 'CallDirectory']:
         settings['REGISTER_APP_GROUPS'] = 'YES'
         settings['CODE_SIGN_ENTITLEMENTS'] = plist(name + '.entitlements', {'com.apple.security.application-groups': [GROUP_ID]})
     if not is_app:
@@ -107,7 +110,7 @@ for name in target_ids:
     dependencies = []
     if is_app:
         embed = []
-        for child in ['CallDirectory', 'MessageFilter']:
+        for child in ['CallDirectory', 'MessageFilter', 'ShareLink']:
             proxy = obj('proxy:' + child, 'PBXContainerItemProxy', containerPortal=ident('project'), proxyType='1', remoteGlobalIDString=target_ids[child], remoteInfo=child)
             dependencies.append(obj('dependency:' + child, 'PBXTargetDependency', target=target_ids[child], targetProxy=proxy))
             embed.append(obj('embed:' + child, 'PBXBuildFile', fileRef=ident('product:' + child), settings={'ATTRIBUTES': ['RemoveHeadersOnCopy']}))

@@ -120,9 +120,9 @@ def main():
     base = os.environ['APP_BUNDLE_ID']
     group = os.environ.get('APP_GROUP_ID', 'group.' + base + '.privacyguard')
     profiles, installed = {}, []
-    for target in ['PrivacyGuard', 'CallDirectory', 'MessageFilter']:
+    for target in ['PrivacyGuard', 'CallDirectory', 'MessageFilter', 'ShareLink']:
         bundle = base + ('' if target == 'PrivacyGuard' else '.' + target)
-        required_group = group if target != 'MessageFilter' else None
+        required_group = group if target in ['PrivacyGuard', 'CallDirectory'] else None
         name = 'PrivacyGuard App Store ' + target
         candidates = api.listing('/v1/profiles', {'filter[name]': name})
         data, decoded = None, None
