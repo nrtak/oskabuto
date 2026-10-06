@@ -53,7 +53,7 @@ struct HomeView: View {
                     NavigationLink { VPNReviewView() } label: { status("VPN", "Unknown • check Settings", "lock.shield") }.buttonStyle(.plain)
                 }.padding(.horizontal).background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
                 Text("Guided and unknown statuses need review in Settings. Statuses are not a safety guarantee.").font(.caption).foregroundStyle(.secondary)
-                Text("Safety tools").font(.headline)
+                HStack { Text("Safety tools").font(.headline); Spacer(); NavigationLink("Set up") { SetupView() }.font(.subheadline) }
                 VStack(spacing: 0) {
                     NavigationLink { CheckerView() } label: { tool("Link Checker", "Inspect without opening", "link") }
                     Divider()
@@ -75,6 +75,7 @@ struct HomeView: View {
 struct ProtectionView: View {
     var body: some View {
         List {
+            NavigationLink("Set up Kabuto") { SetupView() }
             NavigationLink("Call Protection") { CallsView() }
             NavigationLink("SMS / MMS filter") { MessageDemoView() }
             NavigationLink("Secure DNS") { DNSView() }
