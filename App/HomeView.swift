@@ -18,11 +18,12 @@ private struct GlassTile: ViewModifier {
 private struct ProtectionBranches: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        for x in [rect.width * 0.25, rect.width * 0.75] {
-            for y in [rect.minY, rect.maxY] {
-                path.move(to: CGPoint(x: rect.midX, y: rect.midY))
-                path.addLine(to: CGPoint(x: x, y: y))
-            }
+        let endpoints = [CGPoint(x: rect.width * 0.25, y: rect.minY),
+                         CGPoint(x: rect.width * 0.75, y: rect.minY),
+                         CGPoint(x: rect.midX, y: rect.maxY)]
+        for endpoint in endpoints {
+            path.move(to: CGPoint(x: rect.midX, y: rect.midY))
+            path.addLine(to: endpoint)
         }
         return path
     }
@@ -53,10 +54,7 @@ struct HomeView: View {
                         .padding(12).modifier(GlassTile(interactive: false)).padding(.vertical, 6)
                         .accessibilityAddTraits(.isHeader)
                     }.fixedSize(horizontal: false, vertical: true)
-                    tileLayout {
-                        tile("Secure DNS", "network", .blue, "Guided · DNS profile") { DNSView() }
-                        tile("VPN", "lock.shield", .purple, "Unknown · Settings") { VPNReviewView() }
-                    }
+                    tile("Secure DNS", "network", .blue, "Guided · DNS profile") { DNSView() }
                 }
                 Text("Guided and unknown statuses need review in Settings.")
                     .font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)

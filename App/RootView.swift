@@ -133,31 +133,19 @@ struct SettingsView: View {
                 Button("Enable / update reminder") { Task { await state.scheduleReview() } }.modifier(KabutoPrimaryAction())
                 Text("Weekly is selected by default. Tap to allow notifications and schedule it. Delivery depends on iOS notification settings.").font(.caption)
             }
-            Section { Text("No accounts, ads, analytics, breach searches, reverse lookup, cloud history, or VPN service.") }
+            Section { Text("No accounts, ads, analytics, breach searches, reverse lookup, or cloud history.") }
         }.navigationTitle("Settings").navigationBarTitleDisplayMode(.inline)
     }
 }
 
 struct PrivacyChecksView: View {
     @State private var reviewed: Set<String> = []
-    private let checks = ["Safari: review Prevent Cross-Site Tracking and Fraudulent Website Warning", "Other browsers: review tracking and safe browsing in each browser", "Device: review software updates and app permissions", "Device: review Location Services and App Tracking Transparency", "Device: review VPN and installed profiles"]
+    private let checks = ["Safari: review Prevent Cross-Site Tracking and Fraudulent Website Warning", "Other browsers: review tracking and safe browsing in each browser", "Device: review software updates and app permissions", "Device: review Location Services and App Tracking Transparency", "Device: review installed configuration profiles"]
     var body: some View {
         List {
             Text("Guided checks. This app cannot read these settings or verify their values. Review marks are session-only self-reports.")
             ForEach(checks, id: \.self) { check in Button { if reviewed.contains(check) { reviewed.remove(check) } else { reviewed.insert(check) } } label: { Label(check + (reviewed.contains(check) ? " • Reviewed by you" : " • Not reviewed"), systemImage: reviewed.contains(check) ? "checkmark.circle" : "circle") } }
         }.navigationTitle("Privacy Checks")
-    }
-}
-
-struct VPNReviewView: View {
-    var body: some View {
-        List {
-            Section("Status: unknown") {
-                Text("iOS does not provide Kabuto with a reliable global VPN status.")
-                Text("Open Settings → General → VPN & Device Management → VPN to review your connection and installed configurations.")
-            }
-            Text("Kabuto does not provide a VPN service or change your VPN connection.")
-        }.navigationTitle("VPN Status").navigationBarTitleDisplayMode(.inline)
     }
 }
 
