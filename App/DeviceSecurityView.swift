@@ -31,7 +31,6 @@ struct DeviceSecurityView: View {
             }
             Section("Check in Settings · guided") {
                 Text("Open Settings → General → Software Update to see the update or security fixes Apple offers this device.")
-                NavigationLink("Browser and device privacy") { PrivacyChecksView() }
             }
         }
         .navigationTitle("Device Security").navigationBarTitleDisplayMode(.inline)
