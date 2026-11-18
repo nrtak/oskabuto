@@ -174,6 +174,25 @@ final class HomeFlowTests: XCTestCase {
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "tap Profile Downloaded")).firstMatch.exists)
     }
 
+    func testCustomDNSRejectsAnOutOfRangePort() {
+        app.terminate()
+        app.launchArguments += ["-dnsChoice", "Custom DNS", "-dnsCustom", "https://example.org:65536/dns-query"]
+        app.launch()
+        app.tabBars.buttons["Protection"].tap()
+        openHomeAction("Web Protection")
+        let create = app.buttons["Create setup profile"]
+        for _ in 0..<3 {
+            if create.isHittable { break }
+            app.swipeUp()
+        }
+        create.tap()
+        let alert = app.alerts["Kabuto"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        XCTAssertTrue(alert.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "valid HTTPS DNS address")).firstMatch.exists)
+        alert.buttons["OK"].tap()
+        XCTAssertFalse(app.buttons["Export setup profile"].exists)
+    }
+
     func testHomeWithLargeText() throws {
         app.terminate()
         app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]

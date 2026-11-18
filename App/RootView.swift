@@ -103,7 +103,7 @@ struct CallsView: View {
                     } label: {
                         HStack {
                             VStack(alignment: .leading) {
-                                Text("+\(entry.number)")
+                                Text(verbatim: "+\(entry.number)")
                                 Text(entry.blocked ? "Block" : "Label only · \(entry.label)").font(.caption)
                             }
                             Spacer()
@@ -145,14 +145,14 @@ private struct EditCallRule: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("+\(entry.number)") {
+                Section {
                     Picker("When this number calls", selection: $blocked) {
                         Text("Label only").tag(false)
                         Text("Block").tag(true)
                     }.pickerStyle(.segmented)
                     if !blocked { TextField("Caller label", text: $label) }
                     if saveFailed { Text("Couldn’t update this rule. Reopen it and try again.").font(.footnote) }
-                }
+                } header: { Text(verbatim: "+\(entry.number)") }
             }
             .navigationTitle("Edit call rule").navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -227,17 +227,22 @@ struct CheckerView: View {
     @State private var input = ""
     @State private var checked: (input: String, result: SafetyResult)?
     @State private var scanning = false
+    @State private var photoSession = UUID()
     @FocusState private var editing: Bool
 
     var body: some View {
         Form {
             Section(qrMode ? "QR contents" : "Link to check") {
                 if qrMode {
-                    Button("Scan with camera", systemImage: "camera") { scanning = true }
-                    QRPhotoPicker(onStart: { editing = false; input = ""; checked = nil }) { value in
+                    Button("Scan with camera", systemImage: "camera") {
+                        photoSession = UUID()
+                        scanning = true
+                    }
+                    QRPhotoPicker(onStart: { editing = false; checked = nil }) { value in
                         input = value
                         check(value)
                     }
+                    .id(photoSession)
                 }
                 TextField(qrMode ? "Enter QR contents" : "Enter a web address",
                           text: $input, axis: .vertical)
@@ -246,7 +251,10 @@ struct CheckerView: View {
                 PasteButton(payloadType: String.self) { values in
                     if let first = values.first { input = first }
                 }
-                Button("Check locally") { check(input) }
+                Button("Check locally") {
+                    if qrMode { photoSession = UUID() }
+                    check(input)
+                }
                     .modifier(KabutoPrimaryAction())
                     .disabled(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
@@ -261,6 +269,7 @@ struct CheckerView: View {
             }.font(.footnote).foregroundStyle(.secondary)
         }
         .onChange(of: input) { _, newValue in
+            if qrMode { photoSession = UUID() }
             if let checked, checked.input != newValue { self.checked = nil }
         }
         .scrollDismissesKeyboard(.interactively)
@@ -351,7 +360,10 @@ struct SettingsView: View {
                 }.pickerStyle(.menu)
                 Button((selectedDays ?? state.cadence) == 0 ? "Turn off reminder" : "Set reminder") {
                     let days = selectedDays ?? state.cadence
-                    Task { await state.scheduleReview(every: days) }
+                    Task {
+                        await state.scheduleReview(every: days)
+                        selectedDays = nil
+                    }
                 }.modifier(KabutoPrimaryAction())
                 Text("Tap to apply your choice. Delivery depends on your notification settings.").font(.caption)
             }.disabled(state.schedulingReview)

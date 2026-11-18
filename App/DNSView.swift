@@ -91,9 +91,11 @@ struct DNSView: View {
 
 enum DNSProfile {
     static func create(name: String, endpoint: String) throws -> URL {
-        guard let url = URL(string: endpoint), url.scheme == "https", let host = url.host, !host.isEmpty,
+        guard !endpoint.contains(where: { $0.isWhitespace }), let url = URL(string: endpoint),
+              url.scheme?.lowercased() == "https", let host = url.host, !host.isEmpty,
+              url.port.map({ (1...65535).contains($0) }) ?? true,
               url.user == nil, url.password == nil, url.fragment == nil, url.query == nil else {
-            throw NSError(domain: "DNSProfile", code: 1, userInfo: [NSLocalizedDescriptionKey: "Enter an HTTPS DNS endpoint without credentials, query tokens, or a fragment."])
+            throw NSError(domain: "DNSProfile", code: 1, userInfo: [NSLocalizedDescriptionKey: "Enter a valid HTTPS DNS address without credentials, a query, or a fragment."])
         }
         let payload: [String: Any] = [
             "PayloadType": "com.apple.dnsSettings.managed", "PayloadVersion": 1,

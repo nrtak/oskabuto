@@ -7,30 +7,42 @@ final class ShareViewController: UIViewController {
         super.viewDidLoad()
         show(nil, message: "Reading shared content…")
         Task { @MainActor in
-            let providers = (extensionContext?.inputItems as? [NSExtensionItem] ?? []).flatMap { $0.attachments ?? [] }
-            for provider in providers {
-                for type in [UTType.url.identifier, UTType.plainText.identifier] where provider.hasItemConformingToTypeIdentifier(type) {
+            let items = extensionContext?.inputItems as? [NSExtensionItem] ?? []
+            let providers = items.flatMap { $0.attachments ?? [] }
+            for type in [UTType.url.identifier, UTType.plainText.identifier] {
+                let matching = providers.filter { $0.hasItemConformingToTypeIdentifier(type) }
+                for provider in matching {
                     do {
                         let value = try await provider.loadItem(forTypeIdentifier: type, options: nil)
                         let input: String?
                         if let url = value as? URL { input = url.absoluteString }
+                        else if let data = value as? Data { input = data.count <= 16384 ? String(data: data, encoding: .utf8) : nil }
                         else { input = value as? String }
-                        if let input, input.utf8.count <= 16384 {
-                            let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
-                            guard !trimmed.isEmpty else { continue }
-                            let link = SafetyEngine.check(trimmed)
-                            if type == UTType.plainText.identifier && (link.destination == nil || trimmed.contains(where: { $0.isWhitespace })) {
-                                show(nil, message: "", assessment: SafetyEngine.checkMessage(trimmed))
-                            } else {
-                                show(link, message: "")
-                            }
-                            return
-                        }
+                        if let input, presentInput(input, isURL: type == UTType.url.identifier) { return }
                     } catch { continue }
                 }
+                if type == UTType.url.identifier && !matching.isEmpty {
+                    show(nil, message: "Couldn’t read the shared address. Copy it and paste it into Link Checker.")
+                    return
+                }
+            }
+            for item in items {
+                if let text = item.attributedContentText?.string, presentInput(text, isURL: false) { return }
             }
             show(nil, message: "Share a link or a short message, or paste the text into Kabuto.")
         }
+    }
+    private func presentInput(_ input: String, isURL: Bool) -> Bool {
+        guard input.utf8.count <= 16384 else { return false }
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        let link = SafetyEngine.check(trimmed)
+        if isURL || (link.destination != nil && !trimmed.contains(where: { $0.isWhitespace })) {
+            show(link, message: "")
+        } else {
+            show(nil, message: "", assessment: SafetyEngine.checkMessage(trimmed))
+        }
+        return true
     }
     @MainActor private func show(_ result: SafetyResult?, message: String, assessment: MessageCheck? = nil) {
         for child in children { child.willMove(toParent: nil); child.view.removeFromSuperview(); child.removeFromParent() }

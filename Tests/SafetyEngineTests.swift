@@ -24,6 +24,16 @@ final class SafetyEngineTests: XCTestCase {
             XCTAssertNil(result.destination)
         }
     }
+    func testEquivalentDomainSpellingsGiveTheSameWarnings() {
+        for host in ["bit.ly", "tinyurl.com", "t.co", "xn--lookalike.example", "127.0.0.1"] {
+            let ordinary = SafetyEngine.check("https://\(host)/")
+            let absolute = SafetyEngine.check("https://\(host.uppercased())./")
+            XCTAssertTrue(ordinary.suspicious, host)
+            XCTAssertNotNil(absolute.destination, host)
+            XCTAssertEqual(ordinary.reasons, absolute.reasons, host)
+        }
+        XCTAssertFalse(SafetyEngine.check("https://example.org./").suspicious)
+    }
     func testSMSRequiresMultipleSignals() {
         XCTAssertFalse(SafetyEngine.isJunk("Your appointment is tomorrow"))
         XCTAssertFalse(SafetyEngine.isJunk("Urgent: please call me"))
@@ -42,5 +52,12 @@ final class SafetyEngineTests: XCTestCase {
         XCTAssertNil(ordinary.request)
         XCTAssertNil(ordinary.urgency)
         XCTAssertFalse(ordinary.matchesJunkRule)
+    }
+    func testMessageCuesRespectWordBoundariesAndSpacing() {
+        XCTAssertFalse(SafetyEngine.isJunk("Nonurgent: the agenda is at https://example.org"))
+        XCTAssertFalse(SafetyEngine.isJunk("Urgent: testing a passwordless sign-in."))
+        XCTAssertFalse(SafetyEngine.isJunk("Clinic hours: https://example.org/urgent-care"))
+        XCTAssertTrue(SafetyEngine.isJunk("Account\nsuspended. Pay   now."))
+        XCTAssertEqual(SafetyEngine.checkMessage("Urgently send gift cards").request, "gift card")
     }
 }

@@ -26,7 +26,7 @@ struct ActivityItem: Codable, Identifiable {
 
     init() {
         dontSave = UserDefaults.standard.object(forKey: "dontSave") as? Bool ?? true
-        cadence = UserDefaults.standard.object(forKey: "cadence") as? Int ?? 7
+        cadence = UserDefaults.standard.object(forKey: "cadence") as? Int ?? 0
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         var excluded = directory

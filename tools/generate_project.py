@@ -158,4 +158,4 @@ reference = f'<BuildableReference BuildableIdentifier="primary" BlueprintIdentif
 <ProfileAction buildConfiguration="Release" shouldUseLaunchSchemeArgsEnv="YES" savedToolIdentifier="" useCustomWorkingDirectory="NO" debugDocumentVersioning="YES"><BuildableProductRunnable runnableDebuggingMode="0">{reference}</BuildableProductRunnable></ProfileAction>
 <AnalyzeAction buildConfiguration="Debug"/><ArchiveAction buildConfiguration="Release" revealArchiveInOrganizer="YES"/>
 </Scheme>''', encoding='utf-8')
-print('Generated PrivacyGuard.xcodeproj with app and two embedded extensions.')
+print('Generated PrivacyGuard.xcodeproj with app and three embedded extensions.')

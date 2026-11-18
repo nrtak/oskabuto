@@ -8,18 +8,29 @@ settings:
     SWIFT_VERSION: '5.0'
     TARGETED_DEVICE_FAMILY: '1,2'
     CODE_SIGN_STYLE: Automatic
+    CURRENT_PROJECT_VERSION: '1'
+    MARKETING_VERSION: '1.0'
 targets:
   PrivacyGuard:
     type: application
     platform: iOS
     sources: [App, Shared]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.privacyguard.PrivacyGuard
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    scheme:
+      testTargets: [KabutoUITests]
     dependencies:
       - target: CallDirectory
       - target: MessageFilter
+      - target: ShareLink
     info:
       path: Configuration/App-Info.plist
       properties:
-        CFBundleDisplayName: Privacy Guard
+        CFBundleDisplayName: Kabuto
+        ITSAppUsesNonExemptEncryption: false
+        ProtectionAppGroup: group.com.example.privacyguard
         UILaunchScreen: {}
         NSCameraUsageDescription: Scan QR codes locally to inspect their contents before opening them.
         NSFaceIDUsageDescription: Kabuto checks whether Face ID is set up on this device.
@@ -31,9 +42,14 @@ targets:
     type: app-extension
     platform: iOS
     sources: [Extensions/CallDirectory, Shared/CallStore.swift]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.privacyguard.PrivacyGuard.CallDirectory
     info:
       path: Configuration/Call-Info.plist
       properties:
+        CFBundleDisplayName: Kabuto Call Protection
+        ProtectionAppGroup: group.com.example.privacyguard
         NSExtension:
           NSExtensionPointIdentifier: com.apple.callkit.call-directory
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).CallDirectoryHandler
@@ -45,9 +61,42 @@ targets:
     type: app-extension
     platform: iOS
     sources: [Extensions/MessageFilter, Shared/SafetyEngine.swift]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.privacyguard.PrivacyGuard.MessageFilter
     info:
       path: Configuration/Message-Info.plist
       properties:
+        CFBundleDisplayName: Kabuto Message Filter
         NSExtension:
           NSExtensionPointIdentifier: com.apple.identitylookup.message-filter
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).MessageFilterHandler
+  ShareLink:
+    type: app-extension
+    platform: iOS
+    sources: [Extensions/ShareLink, Shared/SafetyEngine.swift, Shared/CheckResultSection.swift]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.privacyguard.PrivacyGuard.ShareLink
+    info:
+      path: Configuration/ShareLink-Info.plist
+      properties:
+        CFBundleDisplayName: Check with Kabuto
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsText: true
+  KabutoUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.privacyguard.uitests
+        GENERATE_INFOPLIST_FILE: 'YES'
+        TEST_TARGET_NAME: PrivacyGuard
+    dependencies:
+      - target: PrivacyGuard
