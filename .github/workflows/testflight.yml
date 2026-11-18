@@ -13,7 +13,7 @@ concurrency:
 jobs:
   upload:
     if: github.ref == 'refs/heads/main'
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 45
     env:
       APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
@@ -82,6 +82,16 @@ jobs:
           xcodebuild -project PrivacyGuard.xcodeproj -scheme PrivacyGuard \
             -configuration Release -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/PrivacyGuard.xcarchive" archive
+      - name: Verify the archived iOS SDK
+        run: |
+          set -euo pipefail
+          app="$RUNNER_TEMP/PrivacyGuard.xcarchive/Products/Applications/PrivacyGuard.app"
+          for bundle in "$app" "$app"/PlugIns/*.appex; do
+            sdk=$(plutil -extract DTPlatformVersion raw -o - "$bundle/Info.plist")
+            minimum=$(plutil -extract MinimumOSVersion raw -o - "$bundle/Info.plist")
+            echo "$(basename "$bundle") uses iOS SDK $sdk and requires iOS $minimum"
+            [[ ${sdk%%.*} -ge 27 ]]
+          done
       - name: Export App Store build
         run: |
           set -euo pipefail
