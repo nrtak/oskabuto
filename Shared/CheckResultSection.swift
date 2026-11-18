@@ -41,7 +41,9 @@ struct SettingsSteps: View {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Text("\(index + 1).").fontWeight(.semibold).monospacedDigit()
                     Text(steps[index]).fixedSize(horizontal: false, vertical: true)
-                }.accessibilityElement(children: .combine)
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(index + 1). \(steps[index])")
             }
         }.padding(.vertical, 4)
     }

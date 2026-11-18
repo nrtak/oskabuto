@@ -171,7 +171,13 @@ final class HomeFlowTests: XCTestCase {
         app.buttons["Create setup profile"].tap()
         XCTAssertTrue(app.staticTexts["Profile created"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Export setup profile"].exists)
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "tap Profile Downloaded")).firstMatch.exists)
+        let installStep = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS[c] %@", "tap Profile Downloaded")).firstMatch
+        for _ in 0..<4 {
+            if installStep.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(installStep.isHittable, app.debugDescription)
     }
 
     func testCustomDNSRejectsAnOutOfRangePort() {
