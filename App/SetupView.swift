@@ -1,21 +1,47 @@
 import SwiftUI
 
+enum ProtectionRoute: Hashable {
+    case review, device, calls, privacy, messages, web
+
+    @MainActor @ViewBuilder var destination: some View {
+        switch self {
+        case .review:
+            List {
+                NavigationLink(value: Self.device) { Label("Check screen lock", systemImage: "lock") }
+                NavigationLink(value: Self.calls) { Label("Review call filtering", systemImage: "phone") }
+                NavigationLink(value: Self.privacy) { Label("Review browser privacy", systemImage: "safari") }
+            }
+            .navigationTitle("Protection Review").navigationBarTitleDisplayMode(.inline)
+        case .device: DeviceSecurityView()
+        case .calls: CallsView()
+        case .privacy: PrivacyChecksView()
+        case .messages: MessageDemoView()
+        case .web: DNSView()
+        }
+    }
+}
+
 struct ProtectionView: View {
     @EnvironmentObject var state: AppState
 
     var body: some View {
         List {
             Section("Calls & messages") {
-                NavigationLink { CallsView() } label: {
+                NavigationLink(value: ProtectionRoute.calls) {
                     feature("Call Protection", symbol: "phone.fill", tint: .blue, detail: state.callStatus)
                 }
-                NavigationLink { MessageDemoView() } label: {
+                NavigationLink(value: ProtectionRoute.messages) {
                     feature("Message Filter", symbol: "message.fill", tint: .indigo, detail: "Guided · review in Messages settings")
                 }
             }
             Section("Browsing") {
-                NavigationLink { DNSView() } label: {
+                NavigationLink(value: ProtectionRoute.web) {
                     feature("Web Protection", symbol: "globe", tint: .teal, detail: "Guided · choose a DNS provider")
+                }
+            }
+            Section {
+                NavigationLink(value: ProtectionRoute.review) {
+                    Label("Protection Review", systemImage: "checklist")
                 }
             }
         }

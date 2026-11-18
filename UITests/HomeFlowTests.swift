@@ -23,8 +23,9 @@ final class HomeFlowTests: XCTestCase {
         field.typeText("https://example.org")
         XCTAssertTrue(app.buttons["Check locally"].isEnabled, app.debugDescription)
         app.buttons["Check locally"].tap()
-        let destination = app.staticTexts["Destination: example.org"]
+        let destination = app.staticTexts["resultDomain"]
         XCTAssertTrue(destination.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(destination.label, "example.org")
         field.tap()
         field.typeText("a")
         XCTAssertFalse(destination.exists)
@@ -42,12 +43,13 @@ final class HomeFlowTests: XCTestCase {
         XCTAssertTrue(app.buttons["Check locally"].isEnabled, app.debugDescription)
         app.buttons["Check locally"].tap()
         XCTAssertTrue(app.staticTexts["Unverified content"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(app.staticTexts["qrTextPreview"].label, "hello")
         app.tabBars.buttons["Activity"].tap()
         XCTAssertTrue(app.staticTexts["Activity saving is off"].waitForExistence(timeout: 5))
     }
 
     func testPrivacyChecklistReview() {
-        XCTAssertTrue(app.staticTexts["Before you open"].exists)
+        XCTAssertTrue(app.staticTexts["Safety Tools"].exists)
         XCTAssertTrue(app.staticTexts["Device Security"].exists)
         openHomeAction("Privacy Checks")
         openHomeAction("Cross-site tracking")
@@ -60,6 +62,51 @@ final class HomeFlowTests: XCTestCase {
         XCTAssertTrue(mark.exists)
     }
 
+    func testDeviceAndNetworkCardsReturnToHome() {
+        let homeHeading = app.staticTexts["Kabuto Mobile Security"]
+        for (action, screen) in [("Check this device", "Device Security"), ("Network Check", "Network Check")] {
+            XCTAssertTrue(homeHeading.waitForExistence(timeout: 5))
+            openHomeAction(action)
+            let bar = app.navigationBars[screen]
+            XCTAssertTrue(bar.waitForExistence(timeout: 5))
+            bar.buttons.element(boundBy: 0).tap()
+        }
+        XCTAssertTrue(homeHeading.waitForExistence(timeout: 5))
+    }
+
+    func testOptingOutClearsSavedActivityAcrossLaunches() {
+        app.tabBars.buttons["Settings"].tap()
+        app.switches["Don't Save Activity"].tap()
+        app.tabBars.buttons["Home"].tap()
+        openHomeAction("Check a link")
+        let field = app.descendants(matching: .any)["checkerInput"].firstMatch
+        field.tap()
+        field.typeText("https://example.org")
+        app.buttons["Check locally"].tap()
+        app.tabBars.buttons["Activity"].tap()
+        let saved = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "Link check: No local warning found")).firstMatch
+        XCTAssertTrue(saved.waitForExistence(timeout: 5))
+
+        app.terminate()
+        app.launchArguments = ["-welcomed", "YES"]
+        app.launch()
+        app.tabBars.buttons["Activity"].tap()
+        XCTAssertTrue(saved.waitForExistence(timeout: 5))
+        app.tabBars.buttons["Settings"].tap()
+        app.switches["Don't Save Activity"].tap()
+        app.terminate()
+        app.launch()
+        app.tabBars.buttons["Activity"].tap()
+        XCTAssertTrue(app.staticTexts["Activity saving is off"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["Settings"].tap()
+        app.switches["Don't Save Activity"].tap()
+        app.tabBars.buttons["Activity"].tap()
+        XCTAssertTrue(app.staticTexts["No checks saved yet"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["Settings"].tap()
+        app.switches["Don't Save Activity"].tap()
+    }
+
     func testProtectionAndSettingsNavigation() {
         app.tabBars.buttons["Protection"].tap()
         for (name, destination) in [("Call Protection", "Call Protection"), ("Message Filter", "Message Filter"), ("Web Protection", "Web Protection")] {
@@ -70,5 +117,44 @@ final class HomeFlowTests: XCTestCase {
         }
         app.tabBars.buttons["Settings"].tap()
         XCTAssertTrue(app.switches["Don't Save Activity"].exists)
+    }
+
+    func testProtectionReviewOpensEachCheck() {
+        app.tabBars.buttons["Protection"].tap()
+        openHomeAction("Protection Review")
+        for (action, screen) in [("Check screen lock", "Device Security"), ("Review call filtering", "Call Protection"), ("Review browser privacy", "Privacy Checks")] {
+            openHomeAction(action)
+            let bar = app.navigationBars[screen]
+            XCTAssertTrue(bar.waitForExistence(timeout: 5))
+            bar.buttons.element(boundBy: 0).tap()
+            XCTAssertTrue(app.navigationBars["Protection Review"].exists)
+        }
+    }
+
+    func testWebProtectionKeepsInstallationGuidanceAfterCreatingProfile() {
+        app.terminate()
+        app.launchArguments += ["-dnsChoice", "Quad9 Secure"]
+        app.launch()
+        app.tabBars.buttons["Protection"].tap()
+        openHomeAction("Web Protection")
+        app.buttons["Create setup profile"].tap()
+        XCTAssertTrue(app.staticTexts["Profile created"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Export setup profile"].exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "tap Profile Downloaded")).firstMatch.exists)
+    }
+
+    func testHomeWithLargeText() throws {
+        app.terminate()
+        app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        try app.performAccessibilityAudit(for: [.textClipped, .contrast])
+        let scan = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Scan a QR code")).firstMatch
+        for _ in 0..<5 {
+            if scan.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(scan.isHittable)
+        scan.tap()
+        XCTAssertTrue(app.navigationBars["QR Safety Scanner"].waitForExistence(timeout: 5))
     }
 }

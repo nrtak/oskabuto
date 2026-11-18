@@ -9,15 +9,15 @@ struct ActivityItem: Codable, Identifiable {
 }
 
 @MainActor final class AppState: ObservableObject {
-    @Published var activities: [ActivityItem] = []
-    @Published var calls: [CallEntry] = []
+    @Published private(set) var activities: [ActivityItem] = []
+    @Published private(set) var activityUnavailable = false
+    @Published private(set) var calls: [CallEntry] = []
+    @Published private(set) var callsUnavailable = false
     @Published var callStatus = "Not yet checked"
     @Published var notice = ""
-    @Published var dontSave: Bool { didSet {
-        UserDefaults.standard.set(dontSave, forKey: "dontSave")
-        if dontSave { activities = []; persist() }
-    } }
-    @Published var cadence: Int { didSet { UserDefaults.standard.set(cadence, forKey: "cadence") } }
+    @Published private(set) var dontSave: Bool
+    @Published private(set) var cadence: Int
+    @Published private(set) var schedulingReview = false
     private let activityURL: URL
     static let extensionID = (Bundle.main.bundleIdentifier ?? "com.example.privacyguard") + ".CallDirectory"
 
@@ -30,21 +30,76 @@ struct ActivityItem: Codable, Identifiable {
         var values = URLResourceValues(); values.isExcludedFromBackup = true
         try? excluded.setResourceValues(values)
         activityURL = directory.appendingPathComponent("activity.json")
-        if !dontSave, let data = try? Data(contentsOf: activityURL), let saved = try? JSONDecoder().decode([ActivityItem].self, from: data) { activities = saved }
-        else { try? FileManager.default.removeItem(at: activityURL) }
-        calls = (try? CallStore.read()) ?? []
+        reloadLocalData()
     }
+
+    func reloadLocalData() {
+        do {
+            if dontSave {
+                try removeActivityFile()
+                activities = []
+            } else {
+                activities = try JSONDecoder().decode([ActivityItem].self, from: Data(contentsOf: activityURL))
+            }
+            activityUnavailable = false
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            activities = []
+            activityUnavailable = false
+        } catch {
+            activityUnavailable = true
+        }
+        do {
+            calls = try CallStore.read()
+            callsUnavailable = false
+        } catch {
+            callsUnavailable = true
+        }
+    }
+
+    private func removeActivityFile() throws {
+        do { try FileManager.default.removeItem(at: activityURL) }
+        catch let error as CocoaError where error.code == .fileNoSuchFile { return }
+    }
+
+    func setDontSave(_ disabled: Bool) {
+        guard disabled != dontSave else { return }
+        if disabled {
+            dontSave = true
+            UserDefaults.standard.set(true, forKey: "dontSave")
+            activities = []
+        }
+        do {
+            try removeActivityFile()
+            activityUnavailable = false
+            if !disabled {
+                dontSave = false
+                UserDefaults.standard.set(false, forKey: "dontSave")
+            }
+        } catch {
+            activityUnavailable = true
+            notice = "Activity saving is off. Couldn’t remove the previous history. Unlock your device and retry in Activity."
+        }
+    }
+
     func record(_ summary: String) {
         guard !dontSave else { return }
-        activities.insert(.init(summary: summary), at: 0)
-        activities = Array(activities.prefix(100)); persist()
-    }
-    func clear() { activities = []; persist() }
-    private func persist() {
+        guard !activityUnavailable else {
+            notice = "History is unavailable. This check was not saved."
+            return
+        }
+        let updated = [ActivityItem(summary: summary)] + Array(activities.prefix(99))
         do {
-            if dontSave { if FileManager.default.fileExists(atPath: activityURL.path) { try FileManager.default.removeItem(at: activityURL) } }
-            else { try JSONEncoder().encode(activities).write(to: activityURL, options: [.atomic, .completeFileProtection]) }
+            try JSONEncoder().encode(updated).write(to: activityURL, options: [.atomic, .completeFileProtection])
+            activities = updated
         } catch { notice = "Could not update local activity: \(error.localizedDescription)" }
+    }
+
+    func clear() {
+        do {
+            try removeActivityFile()
+            activities = []
+            activityUnavailable = false
+        } catch { notice = "Could not delete local activity: \(error.localizedDescription)" }
     }
     func refreshCalls() {
         CXCallDirectoryManager.sharedInstance.getEnabledStatusForExtension(withIdentifier: Self.extensionID) { status, error in
@@ -53,25 +108,39 @@ struct ActivityItem: Codable, Identifiable {
             }
         }
     }
-    func saveCalls(_ entries: [CallEntry]) {
+    @discardableResult func saveCalls(_ entries: [CallEntry]) -> Bool {
+        guard !callsUnavailable else { return false }
         do {
-            try CallStore.write(entries); calls = entries
+            let ordered = entries.sorted { $0.number < $1.number }
+            try CallStore.write(ordered)
+            calls = ordered
             CXCallDirectoryManager.sharedInstance.reloadExtension(withIdentifier: Self.extensionID) { error in
                 Task { @MainActor in self.notice = error.map { "Saved locally; reload failed: \($0.localizedDescription)" } ?? "Call list reloaded"; self.refreshCalls() }
             }
-        } catch { notice = "Call list not saved: \(error.localizedDescription)" }
+            return true
+        } catch { notice = "Call list not saved: \(error.localizedDescription)"; return false }
     }
-    func scheduleReview() async {
+    func scheduleReview(every days: Int, announce: Bool = true) async {
+        guard !schedulingReview, [0, 1, 7, 30].contains(days) else { return }
+        schedulingReview = true
+        defer { schedulingReview = false }
         let center = UNUserNotificationCenter.current()
-        center.removePendingNotificationRequests(withIdentifiers: ["protection-review"])
-        guard cadence > 0 else { notice = "Review reminders off"; return }
         do {
-            guard try await center.requestAuthorization(options: [.alert, .sound]) else { notice = "Guided: allow notifications in Settings for reminders"; return }
-            let content = UNMutableNotificationContent()
-            content.title = "Protection Review"; content.body = "Review call filtering, Web Protection, and device privacy settings."; content.sound = .default
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: Double(cadence) * 86400, repeats: true)
-            try await center.add(.init(identifier: "protection-review", content: content, trigger: trigger))
-            notice = "Review scheduled every \(cadence) days"
+            if days == 0 {
+                center.removePendingNotificationRequests(withIdentifiers: [ReviewNotificationDelegate.reminderID])
+                if announce { notice = "Review reminders off" }
+            } else {
+                guard try await center.requestAuthorization(options: [.alert, .sound]) else { notice = "Allow notifications in Settings to receive reminders."; return }
+                let content = UNMutableNotificationContent()
+                content.title = "Protection Review"
+                content.body = "Review your screen lock, call filtering, and browser privacy."
+                content.sound = .default
+                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: Double(days) * 86400, repeats: true)
+                try await center.add(.init(identifier: ReviewNotificationDelegate.reminderID, content: content, trigger: trigger))
+                notice = days == 1 ? "Daily review scheduled" : "Review scheduled every \(days) days"
+            }
+            cadence = days
+            UserDefaults.standard.set(days, forKey: "cadence")
         } catch { notice = "Reminder failed: \(error.localizedDescription)" }
     }
 }

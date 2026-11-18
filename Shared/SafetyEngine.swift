@@ -1,6 +1,7 @@
 import Foundation
 
 struct SafetyResult: Equatable {
+    let destination: String?
     let title: String
     let reasons: [String]
     let suspicious: Bool
@@ -11,7 +12,7 @@ enum SafetyEngine {
         guard let url = URL(string: input.trimmingCharacters(in: .whitespacesAndNewlines)),
               let scheme = url.scheme?.lowercased(), ["https", "http"].contains(scheme),
               let host = url.host, !host.isEmpty else {
-            return .init(title: "Unverified content", reasons: ["Not a complete HTTP or HTTPS link. QR codes can also contain payment, Wi-Fi, or app commands. Nothing was opened."], suspicious: true)
+            return .init(destination: nil, title: "Unverified content", reasons: ["This content has no complete HTTP or HTTPS destination."], suspicious: true)
         }
         var reasons: [String] = []
         if scheme == "http" { reasons.append("Connection is not encrypted with HTTPS.") }
@@ -19,7 +20,7 @@ enum SafetyEngine {
         if host.contains("xn--") { reasons.append("Internationalized domain: check for look-alike characters.") }
         if host.range(of: #"^(\d{1,3}\.){3}\d{1,3}$"#, options: .regularExpression) != nil || host.contains(":") { reasons.append("Destination is a numeric network address.") }
         if ["bit.ly", "tinyurl.com", "t.co"].contains(host.lowercased()) { reasons.append("Shortened link hides the final destination; redirects are not followed.") }
-        return .init(title: reasons.isEmpty ? "No local warning found" : "Review before opening", reasons: ["Destination: \(host)"] + reasons + ["Local checks cannot verify reputation, page contents, or redirects. HTTPS does not prove a site is trustworthy."], suspicious: !reasons.isEmpty)
+        return .init(destination: host, title: reasons.isEmpty ? "No local warning found" : "Review before opening", reasons: reasons, suspicious: !reasons.isEmpty)
     }
 
     static func isJunk(_ body: String) -> Bool {

@@ -14,8 +14,8 @@ enum CallStore {
     }
     static func read() throws -> [CallEntry] {
         guard let file else { throw CocoaError(.fileNoSuchFile) }
-        guard FileManager.default.fileExists(atPath: file.path) else { return [] }
-        return try JSONDecoder().decode([CallEntry].self, from: Data(contentsOf: file))
+        do { return try JSONDecoder().decode([CallEntry].self, from: Data(contentsOf: file)) }
+        catch let error as CocoaError where error.code == .fileReadNoSuchFile { return [] }
     }
     static func write(_ entries: [CallEntry]) throws {
         guard let file else { throw CocoaError(.fileNoSuchFile) }

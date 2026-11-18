@@ -8,6 +8,7 @@ struct QRScanner: View {
     @Environment(\.scenePhase) private var phase
     @Environment(\.openURL) private var openURL
     @State private var permission = AVCaptureDevice.authorizationStatus(for: .video)
+    @State private var scannerFailed = false
 
     var body: some View {
         NavigationStack {
@@ -18,8 +19,8 @@ struct QRScanner: View {
                     ProgressView("Waiting for camera access…")
                 } else if permission == .denied {
                     fallback("Camera access is off", "Allow camera access in Settings or enter the QR contents yourself.")
-                } else if permission == .authorized && DataScannerViewController.isAvailable {
-                    CameraScanner(onScan: onScan)
+                } else if permission == .authorized && DataScannerViewController.isAvailable && !scannerFailed {
+                    CameraScanner(onScan: onScan, onUnavailable: { scannerFailed = true })
                 } else {
                     fallback("Camera unavailable", "You can still check a code by pasting or typing its contents.")
                 }
@@ -55,19 +56,24 @@ struct QRScanner: View {
 
 private struct CameraScanner: UIViewControllerRepresentable {
     let onScan: (String) -> Void
-    func makeCoordinator() -> Coordinator { Coordinator(onScan: onScan) }
+    let onUnavailable: () -> Void
+    func makeCoordinator() -> Coordinator { Coordinator(onScan: onScan, onUnavailable: onUnavailable) }
     func makeUIViewController(context: Context) -> DataScannerViewController {
         let controller = DataScannerViewController(recognizedDataTypes: [.barcode(symbologies: [.qr])], qualityLevel: .balanced, recognizesMultipleItems: false, isHighlightingEnabled: true)
         controller.delegate = context.coordinator
-        do { try controller.startScanning() } catch { context.coordinator.showError(on: controller, error: error) }
+        do { try controller.startScanning() } catch { context.coordinator.unavailable() }
         return controller
     }
     func updateUIViewController(_ controller: DataScannerViewController, context: Context) {}
     static func dismantleUIViewController(_ controller: DataScannerViewController, coordinator: Coordinator) { controller.stopScanning() }
     final class Coordinator: NSObject, DataScannerViewControllerDelegate {
         let onScan: (String) -> Void
+        let onUnavailable: () -> Void
         var delivered = false
-        init(onScan: @escaping (String) -> Void) { self.onScan = onScan }
+        init(onScan: @escaping (String) -> Void, onUnavailable: @escaping () -> Void) {
+            self.onScan = onScan
+            self.onUnavailable = onUnavailable
+        }
         func dataScanner(_ dataScanner: DataScannerViewController, didAdd addedItems: [RecognizedItem], allItems: [RecognizedItem]) {
             guard !delivered else { return }
             for item in addedItems {
@@ -76,12 +82,11 @@ private struct CameraScanner: UIViewControllerRepresentable {
                 }
             }
         }
-        func dataScanner(_ dataScanner: DataScannerViewController, becameUnavailableWithError error: DataScannerViewController.ScanningUnavailable) { showError(on: dataScanner, error: error) }
-        func showError(on controller: UIViewController, error: Error) {
-            DispatchQueue.main.async {
-                let alert = UIAlertController(title: "Scanning unavailable", message: "Use manual entry or check camera permissions. \(error.localizedDescription)", preferredStyle: .alert)
-                alert.addAction(UIAlertAction(title: "OK", style: .default)); controller.present(alert, animated: true)
-            }
+        func dataScanner(_ dataScanner: DataScannerViewController, becameUnavailableWithError error: DataScannerViewController.ScanningUnavailable) { unavailable() }
+        func unavailable() {
+            guard !delivered else { return }
+            delivered = true
+            DispatchQueue.main.async { self.onUnavailable() }
         }
     }
 }

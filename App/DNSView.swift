@@ -34,23 +34,37 @@ struct DNSView: View {
     private var choice: DNSChoice { DNSChoice(rawValue: stored) ?? .system }
     var body: some View {
         Form {
-            Section("Choose a provider") {
+            Section("1. Choose provider") {
                 Picker("Provider", selection: $stored) { ForEach(DNSChoice.allCases) { Text($0.rawValue).tag($0.rawValue) } }
                 Text(choice.explanation)
-                if choice == .custom { TextField("https://resolver.example/dns-query", text: $custom).textInputAutocapitalization(.never).autocorrectionDisabled() }
-            }
-            Section("Set up in Settings · guided") {
-                if choice == .system {
-                    Text("Remove the Kabuto Web Protection profile (called Kabuto DNS in earlier versions) in Settings → General → VPN & Device Management. Selecting System Default here does not change system DNS.")
-                } else {
-                    Button("Create setup profile") {
-                        do { profile = try DNSProfile.create(name: choice.rawValue, endpoint: choice == .custom ? custom : choice.endpoint) }
-                        catch { state.notice = error.localizedDescription }
-                    }
-                    if let profile { ShareLink("Share setup profile", item: profile) }
-                    Text("Export to Files, open the .mobileconfig file, then approve installation in Settings. The profile is unsigned and contains only the selected encrypted DNS endpoint. Inspect it before installing. Remove it to undo.")
+                if choice == .custom {
+                    TextField("https://resolver.example/dns-query", text: $custom)
+                        .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
                 }
-                Text("Kabuto cannot verify which provider is active. Apps with their own DNS settings may use a different provider.").font(.caption)
+            }
+            if choice == .system {
+                Section("Use System Default") {
+                    Text("If you installed Kabuto Web Protection (formerly Kabuto DNS), remove its profile in Settings → General → VPN & Device Management.")
+                    Text("Choosing System Default here only changes your selection in Kabuto.").font(.footnote)
+                }
+            } else {
+                Section("2. Create profile") {
+                    if let profile {
+                        Label("Profile created", systemImage: "checkmark.circle")
+                        ShareLink("Export setup profile", item: profile)
+                    } else {
+                        Button("Create setup profile") {
+                            do { profile = try DNSProfile.create(name: choice.rawValue, endpoint: choice == .custom ? custom.trimmingCharacters(in: .whitespacesAndNewlines) : choice.endpoint) }
+                            catch { state.notice = error.localizedDescription }
+                        }
+                    }
+                }
+                Section("3. Install in Settings") {
+                    Text("Export the profile using Save to Files, then open the saved file.")
+                    Text("In Settings, tap Profile Downloaded. Review the unsigned Kabuto Web Protection profile and tap Install.")
+                    Text("Check the installed profile in Settings → General → VPN & Device Management. You can also remove it there.").font(.footnote)
+                    Text("Guided setup. Kabuto cannot confirm which provider is active. Some apps use their own DNS.").font(.footnote).foregroundStyle(.secondary)
+                }
             }
         }.navigationTitle("Web Protection")
         .onChange(of: stored) { _, _ in profile = nil }
@@ -76,7 +90,9 @@ enum DNSProfile {
             "PayloadDisplayName": "Kabuto Web Protection", "PayloadDescription": "User-selected encrypted DNS. Remove this profile to restore network DNS.",
             "PayloadContent": [payload]
         ]
-        let file = FileManager.default.temporaryDirectory.appendingPathComponent("PrivacyGuard-DNS.mobileconfig")
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let file = folder.appendingPathComponent("Kabuto Web Protection.mobileconfig")
         try PropertyListSerialization.data(fromPropertyList: container, format: .xml, options: 0).write(to: file, options: [.atomic, .completeFileProtection])
         return file
     }

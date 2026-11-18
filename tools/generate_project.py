@@ -52,6 +52,8 @@ for name in target_ids:
     sources = sorted((ROOT / ('App' if is_app else 'Extensions/' + name)).glob('*.swift'))
     sources += [ROOT / 'Shared' / file for file in (['CallStore.swift', 'SafetyEngine.swift', 'AppleReleaseCatalog.swift'] if is_app else ['CallStore.swift'] if name == 'CallDirectory' else ['SafetyEngine.swift'])]
     refs, builds = [], []
+    if name in ['PrivacyGuard', 'ShareLink']:
+        sources.append(ROOT / 'Shared' / 'CheckResultSection.swift')
     for file in sources:
         path = file.relative_to(ROOT).as_posix()
         ref = obj('file:' + path, 'PBXFileReference', lastKnownFileType='sourcecode.swift', path=path, sourceTree='SOURCE_ROOT')

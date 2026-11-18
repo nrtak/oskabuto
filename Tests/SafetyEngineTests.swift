@@ -5,17 +5,23 @@ final class SafetyEngineTests: XCTestCase {
     func testOrdinaryHTTPSHasNoWarningButRemainsUnverified() {
         let result = SafetyEngine.check("https://example.com/path")
         XCTAssertFalse(result.suspicious)
-        XCTAssertTrue(result.reasons.contains { $0.contains("cannot verify reputation") })
+        XCTAssertEqual(result.destination, "example.com")
+        XCTAssertTrue(result.reasons.isEmpty)
     }
     func testDisguisedDestination() {
-        XCTAssertTrue(SafetyEngine.check("https://bank.example@evil.example").suspicious)
+        let disguised = SafetyEngine.check("https://bank.example@evil.example")
+        XCTAssertTrue(disguised.suspicious)
+        XCTAssertEqual(disguised.destination, "evil.example")
+        XCTAssertTrue(disguised.reasons.contains { $0.contains("credentials") })
         XCTAssertTrue(SafetyEngine.check("http://example.com").suspicious)
         XCTAssertTrue(SafetyEngine.check("https://xn--lookalike.example").suspicious)
         XCTAssertTrue(SafetyEngine.check("https://127.0.0.1").suspicious)
     }
     func testQRCommandsNeverTreatedAsSafeLinks() {
         for value in ["WIFI:T:WPA;S:test;;", "javascript:alert(1)", "mailto:test@example.com", "", "not a url"] {
-            XCTAssertTrue(SafetyEngine.check(value).suspicious)
+            let result = SafetyEngine.check(value)
+            XCTAssertTrue(result.suspicious)
+            XCTAssertNil(result.destination)
         }
     }
     func testSMSRequiresMultipleSignals() {

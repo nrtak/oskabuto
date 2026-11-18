@@ -45,9 +45,8 @@ private struct SharedLinkView: View {
         NavigationStack {
             List {
                 if let result {
-                    Section(result.title) { ForEach(result.reasons, id: \.self) { Text($0) } }
+                    CheckResultSection(result: result)
                 } else { Text(message) }
-                Text("Checked on this device. Nothing opened, uploaded, or saved.").font(.caption).foregroundStyle(.secondary)
             }.navigationTitle("Kabuto Link Check").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done", action: done) } }
         }
