@@ -46,6 +46,20 @@ final class HomeFlowTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Activity saving is off"].waitForExistence(timeout: 5))
     }
 
+    func testPrivacyChecklistReview() {
+        XCTAssertTrue(app.staticTexts["Before you open"].exists)
+        XCTAssertTrue(app.staticTexts["Device Security"].exists)
+        openHomeAction("Privacy Checks")
+        openHomeAction("Cross-site tracking")
+        let mark = app.buttons["Mark as reviewed"]
+        XCTAssertTrue(mark.waitForExistence(timeout: 5))
+        mark.tap()
+        let undo = app.buttons["Undo review"]
+        XCTAssertTrue(undo.waitForExistence(timeout: 5))
+        undo.tap()
+        XCTAssertTrue(mark.exists)
+    }
+
     func testProtectionAndSettingsNavigation() {
         app.tabBars.buttons["Protection"].tap()
         for (name, destination) in [("Call Protection", "Call Protection"), ("Message Filter", "Message Filter"), ("Web Protection", "Web Protection")] {

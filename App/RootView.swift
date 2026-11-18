@@ -204,12 +204,51 @@ struct SettingsView: View {
 
 struct PrivacyChecksView: View {
     @State private var reviewed: Set<String> = []
-    private let checks = ["Safari: review Prevent Cross-Site Tracking and Fraudulent Website Warning", "Other browsers: review tracking and safe browsing in each browser", "Device: review app permissions", "Device: review Location Services and App Tracking Transparency", "Device: review installed configuration profiles"]
     var body: some View {
         List {
-            Text("Guided checks. This app cannot read these settings or verify their values. Review marks are session-only self-reports.")
-            ForEach(checks, id: \.self) { check in Button { if reviewed.contains(check) { reviewed.remove(check) } else { reviewed.insert(check) } } label: { Label(check + (reviewed.contains(check) ? " • Reviewed by you" : " • Not reviewed"), systemImage: reviewed.contains(check) ? "checkmark.circle" : "circle") } }
-        }.navigationTitle("Privacy Checks")
+            Section {
+                check("Cross-site tracking", "Find Safari in Settings. Review Prevent Cross-Site Tracking.")
+                check("Website warnings", "In Safari settings, look for Fraudulent Website Warning.")
+                check("Other browsers", "Open your browser’s privacy settings. Review tracking protection and safe browsing.")
+            } header: {
+                Label("Browsing", systemImage: "safari")
+            }
+            Section {
+                check("App permissions", "In Settings → Privacy & Security, check which apps can use your camera, microphone, and photos.")
+                check("Location access", "Open Settings → Privacy & Security → Location Services. Review access for each app.")
+                check("App tracking", "Open Settings → Privacy & Security → Tracking. Review which apps can request tracking.")
+                check("Configuration profiles", "In Settings → General → VPN & Device Management, review any installed profiles.")
+            } header: {
+                Label("Apps & device", systemImage: "iphone")
+            } footer: {
+                Text("Guided checks. You mark what you’ve reviewed for this visit.")
+            }
+        }
+        .navigationTitle("Privacy Checks").navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func check(_ title: String, _ instruction: String) -> some View {
+        let isReviewed = reviewed.contains(title)
+        return DisclosureGroup {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(instruction).font(.subheadline).foregroundStyle(.secondary)
+                Button(isReviewed ? "Undo review" : "Mark as reviewed") {
+                    if isReviewed { reviewed.remove(title) } else { reviewed.insert(title) }
+                }
+                .modifier(KabutoPrimaryAction())
+                .controlSize(.large)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: isReviewed ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isReviewed ? Color.accentColor : Color.secondary)
+                    .accessibilityHidden(true)
+                Text(title).foregroundStyle(.primary)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityValue(isReviewed ? "Reviewed by you" : "To review")
+        }
     }
 }
 

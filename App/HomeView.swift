@@ -9,20 +9,22 @@ struct HomeView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 22) {
                 deviceCard
-                Text("Link & QR checks").font(.title3.bold()).accessibilityAddTraits(.isHeader)
-                actionLayout {
-                    actionCard("Check a link", detail: "Inspect a URL", symbol: "link", tint: .blue) { CheckerView() }
-                    actionCard("Scan a QR code", detail: "Preview its contents", symbol: "qrcode.viewfinder", tint: .indigo) { CheckerView(qrMode: true) }
+                homeSection("Before you open") {
+                    actionLayout {
+                        actionCard("Check a link", detail: "Inspect a URL", symbol: "link", tint: .blue) { CheckerView() }
+                        actionCard("Scan a QR code", detail: "Preview its contents", symbol: "qrcode.viewfinder", tint: .indigo) { CheckerView(qrMode: true) }
+                    }
                 }
-                Text("Network & privacy").font(.title3.bold()).accessibilityAddTraits(.isHeader)
-                VStack(spacing: 0) {
-                    reviewRow("Network Check", detail: "Connection type and Wi-Fi security", symbol: "wifi", tint: .teal) { NetworkCheckView() }
-                    Divider().padding(.leading, 68)
-                    reviewRow("Privacy Review", detail: "Browser and device settings", symbol: "hand.raised", tint: .purple) { PrivacyChecksView() }
+                homeSection("Device Security") {
+                    VStack(spacing: 0) {
+                        reviewRow("Network Check", detail: "Connection type and Wi-Fi security", symbol: "wifi", tint: .teal) { NetworkCheckView() }
+                        Divider().padding(.leading, 68)
+                        reviewRow("Privacy Checks", detail: "Browser and app permissions", symbol: "hand.raised", tint: .purple) { PrivacyChecksView() }
+                    }
+                    .modifier(ActionSurface(solid: reduceTransparency, cornerRadius: 22, interactive: false))
                 }
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22))
             }
             .frame(maxWidth: 620)
             .padding(.horizontal, 16).padding(.vertical, 10)
@@ -32,12 +34,19 @@ struct HomeView: View {
         .navigationTitle("Kabuto Mobile Security").navigationBarTitleDisplayMode(.inline)
     }
 
+    private func homeSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.title3.bold()).accessibilityAddTraits(.isHeader)
+            content()
+        }
+    }
+
     private var deviceCard: some View {
         NavigationLink { DeviceSecurityView() } label: {
             VStack(alignment: .leading, spacing: 14) {
                 actionLayout {
                     VStack(alignment: .leading, spacing: 7) {
-                        Text("Device Security").font(.title.bold())
+                        Text("Your device").font(.title.bold())
                         Text("\(UIDevice.current.systemName) \(UIDevice.current.systemVersion) installed")
                             .font(.subheadline.weight(.medium)).foregroundStyle(ice)
                         Text("Check your screen lock and software updates.")
@@ -58,7 +67,8 @@ struct HomeView: View {
                     Image(systemName: "arrow.right").accessibilityHidden(true)
                 }
                 .padding(.horizontal, 16).frame(minHeight: 44)
-                .foregroundStyle(navy).background(ice, in: RoundedRectangle(cornerRadius: 13))
+                .foregroundStyle(navy)
+                .modifier(ActionSurface(solid: reduceTransparency, cornerRadius: 13, tint: ice))
             }
             .padding(18).foregroundStyle(.white)
             .background {
@@ -110,13 +120,16 @@ struct HomeView: View {
 
 private struct ActionSurface: ViewModifier {
     let solid: Bool
+    var cornerRadius: CGFloat = 20
+    var tint: Color? = nil
+    var interactive = true
 
     @ViewBuilder func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 20)
+        let shape = RoundedRectangle(cornerRadius: cornerRadius)
         if #available(iOS 26, *), !solid {
-            content.glassEffect(.regular.interactive(), in: shape)
+            content.glassEffect(.regular.tint(tint).interactive(interactive), in: shape)
         } else {
-            content.background(Color(uiColor: .secondarySystemGroupedBackground), in: shape)
+            content.background(tint ?? Color(uiColor: .secondarySystemGroupedBackground), in: shape)
         }
     }
 }
