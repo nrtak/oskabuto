@@ -4,18 +4,19 @@ struct HomeView: View {
     @Environment(\.dynamicTypeSize) private var textSize
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
-    private let seafoam = Color(red: 0.55, green: 0.94, blue: 0.84)
-    private let navy = Color(red: 0.05, green: 0.14, blue: 0.20)
+    private let ice = Color(red: 0.81, green: 0.90, blue: 0.97)
+    private let navy = Color(red: 0.07, green: 0.15, blue: 0.24)
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 deviceCard
-                Text("Quick checks").font(.title3.bold()).accessibilityAddTraits(.isHeader)
+                Text("Link & QR checks").font(.title3.bold()).accessibilityAddTraits(.isHeader)
                 actionLayout {
                     actionCard("Check a link", detail: "Inspect a URL", symbol: "link", tint: .blue) { CheckerView() }
                     actionCard("Scan a QR code", detail: "Preview its contents", symbol: "qrcode.viewfinder", tint: .indigo) { CheckerView(qrMode: true) }
                 }
+                Text("Network & privacy").font(.title3.bold()).accessibilityAddTraits(.isHeader)
                 VStack(spacing: 0) {
                     reviewRow("Network Check", detail: "Connection type and Wi-Fi security", symbol: "wifi", tint: .teal) { NetworkCheckView() }
                     Divider().padding(.leading, 68)
@@ -38,14 +39,14 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 7) {
                         Text("Device Security").font(.title.bold())
                         Text("\(UIDevice.current.systemName) \(UIDevice.current.systemVersion) installed")
-                            .font(.subheadline.weight(.medium)).foregroundStyle(seafoam)
+                            .font(.subheadline.weight(.medium)).foregroundStyle(ice)
                         Text("Check your screen lock and software updates.")
                             .font(.subheadline).fixedSize(horizontal: false, vertical: true)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     ZStack {
-                        Circle().stroke(seafoam.opacity(0.28), lineWidth: 1)
-                        Circle().inset(by: 8).stroke(seafoam.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [3, 5]))
+                        Circle().stroke(ice.opacity(0.28), lineWidth: 1)
+                        Circle().inset(by: 8).stroke(ice.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [3, 5]))
                         Image("AppMark").resizable().scaledToFit().frame(width: 65, height: 65)
                             .clipShape(RoundedRectangle(cornerRadius: 16))
                     }
@@ -57,11 +58,11 @@ struct HomeView: View {
                     Image(systemName: "arrow.right").accessibilityHidden(true)
                 }
                 .padding(.horizontal, 16).frame(minHeight: 44)
-                .foregroundStyle(navy).background(seafoam, in: RoundedRectangle(cornerRadius: 13))
+                .foregroundStyle(navy).background(ice, in: RoundedRectangle(cornerRadius: 13))
             }
             .padding(18).foregroundStyle(.white)
             .background {
-                LinearGradient(colors: [navy, Color(red: 0.08, green: 0.27, blue: 0.34)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                LinearGradient(colors: [navy, Color(red: 0.15, green: 0.26, blue: 0.40)], startPoint: .topLeading, endPoint: .bottomTrailing)
             }
             .clipShape(RoundedRectangle(cornerRadius: 24))
             .contentShape(Rectangle())

@@ -1,4 +1,5 @@
 import SwiftUI
+import CallKit
 
 struct RootView: View {
     @EnvironmentObject var state: AppState
@@ -36,9 +37,17 @@ struct CallsView: View {
     @State private var blocked = false
     var body: some View {
         Form {
-            Section("Status") { Text(state.callStatus); Button("Refresh status") { state.refreshCalls() }
+            Section("Call directory") {
+                Text(state.callStatus)
+                Button("Open call blocking settings") {
+                    Task {
+                        do { try await CXCallDirectoryManager.sharedInstance.openSettings() }
+                        catch { state.notice = "Open Settings and search for Call Blocking & Identification." }
+                    }
+                }
+                Button("Refresh status") { state.refreshCalls() }
                 Text("Enable Kabuto in Settings → Apps → Phone → Call Blocking & Identification. The app cannot read incoming calls or call history.") }
-            Section("Local call list") {
+            Section("Add a number") {
                 TextField("Country code + number (e.g. +14155550123)", text: $number).keyboardType(.phonePad)
                 TextField("Caller label", text: $label)
                 Toggle("Block this number", isOn: $blocked)
@@ -49,9 +58,11 @@ struct CallsView: View {
                     state.saveCalls(state.calls.filter { $0.number != value } + [.init(number: value, label: String(label.prefix(80)), blocked: blocked)])
                     number = ""; label = ""
                 }
+            }
+            if !state.calls.isEmpty { Section("Your numbers") {
                 ForEach(state.calls) { entry in VStack(alignment: .leading) { Text("+\(entry.number)"); Text(entry.blocked ? "Blocked" : entry.label).font(.caption) } }
                     .onDelete { offsets in var entries = state.calls; entries.remove(atOffsets: offsets); state.saveCalls(entries) }
-            }
+            } }
             Text("Call Protection uses the numbers you add here. Live Caller ID and reputation lookups are unavailable.").font(.caption)
         }.navigationTitle("Call Protection")
     }
@@ -66,10 +77,11 @@ struct MessageDemoView: View {
             Section("Try the on-device rules") {
                 TextEditor(text: $text).frame(minHeight: 120)
                 Button("Test classification") { result = SafetyEngine.isJunk(text) ? "Junk: urgency plus a link or sensitive/payment request." : "No filter decision: passed back to iOS. This does not prove legitimacy." }
-                Text(result)
+                if !result.isEmpty { Text(result) }
             }
             Text("Conservative prototype rules can miss scams or flag legitimate messages. Message contents and senders are never saved or sent to a server.")
         }.navigationTitle("Message Filter")
+        .onChange(of: text) { _, _ in result = "" }
     }
 }
 
@@ -79,34 +91,97 @@ struct CheckerView: View {
     @State private var input = ""
     @State private var result: SafetyResult?
     @State private var scanning = false
+    @FocusState private var editing: Bool
+
+    private func updateInput(_ value: String) {
+        input = value
+        result = nil
+    }
+
     var body: some View {
         Form {
-            if qrMode {
-                Button("Scan QR with camera") { scanning = true }
-            } else {
-                Text("You can also check a link from another app. Tap Share, then choose Check with Kabuto. Look under More if needed.")
-                    .font(.callout)
+            Section(qrMode ? "QR contents" : "Link to check") {
+                if qrMode { Button("Scan with camera", systemImage: "camera") { scanning = true } }
+                TextField(qrMode ? "Enter QR contents" : "Enter a web address",
+                          text: Binding(get: { input }, set: updateInput), axis: .vertical)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled().focused($editing)
+                    .accessibilityIdentifier("checkerInput")
+                PasteButton(payloadType: String.self) { values in
+                    if let first = values.first { updateInput(first) }
+                }
+                Button("Check locally") { check(input) }
+                    .modifier(KabutoPrimaryAction())
+                    .disabled(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
-            TextField(qrMode ? "QR contents or link" : "https://example.com", text: $input, axis: .vertical).textInputAutocapitalization(.never).autocorrectionDisabled()
-            Button("Check locally") { check() }.modifier(KabutoPrimaryAction()).disabled(input.isEmpty)
             if let result {
-                Section(result.title) { ForEach(result.reasons, id: \.self) { Text($0) } }
+                Section("Result") {
+                    Label(result.title, systemImage: result.suspicious ? "exclamationmark.triangle" : "magnifyingglass")
+                        .font(.headline)
+                    ForEach(result.reasons, id: \.self) { Text($0) }
+                }
             }
-            Text("No link is opened or fetched. Only the result category can be saved in optional Activity; the link and QR contents are never saved.").font(.caption)
-        }.navigationTitle(qrMode ? "QR Safety Scanner" : "Link Checker")
-        .sheet(isPresented: $scanning) { QRScanner { value in input = value; scanning = false; check() } }
+            Section {
+                Text("Kabuto checks the text on this device. Your links and QR contents stay out of Activity.")
+                if !qrMode {
+                    Text("From another app, tap Share and choose Check with Kabuto.")
+                }
+            }.font(.footnote).foregroundStyle(.secondary)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .navigationTitle(qrMode ? "QR Safety Scanner" : "Link Checker")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $scanning) {
+            QRScanner { value in
+                updateInput(value)
+                scanning = false
+                check(value)
+            }
+        }
     }
-    private func check() { let value = SafetyEngine.check(input); result = value; state.record("\(qrMode ? "QR" : "Link") check: \(value.title)") }
+
+    private func check(_ input: String) {
+        editing = false
+        let value = SafetyEngine.check(input)
+        result = value
+        state.record("\(qrMode ? "QR" : "Link") check: \(value.title)")
+    }
 }
 
 struct ActivityView: View {
+    @State private var confirmDelete = false
     @EnvironmentObject var state: AppState
     var body: some View {
-        List {
-            Text(state.dontSave ? "Don't Save Activity is on. No activity is retained." : "Local tool summaries only, capped at 100. No calls, messages, URLs, or QR contents.")
-            ForEach(state.activities) { item in VStack(alignment: .leading) { Text(item.summary); Text(item.date, style: .date).font(.caption) } }
-            if !state.activities.isEmpty { Button("Delete all activity", role: .destructive) { state.clear() } }
-        }.navigationTitle("Activity").navigationBarTitleDisplayMode(.inline)
+        Group {
+            if state.activities.isEmpty {
+                ContentUnavailableView {
+                    Label(state.dontSave ? "Activity saving is off" : "No checks saved yet",
+                          systemImage: state.dontSave ? "eye.slash" : "clock")
+                } description: {
+                    Text(state.dontSave ? "To keep a local history, turn off Don’t Save Activity in Settings." : "Results from Link Checker and QR Safety Scanner will appear here.")
+                }
+            } else {
+                List {
+                    Section {
+                        ForEach(state.activities) { item in
+                            Label {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(item.summary)
+                                    Text(item.date, format: .dateTime.month().day().hour().minute())
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                            } icon: {
+                                Image(systemName: item.summary.hasPrefix("QR") ? "qrcode.viewfinder" : "link")
+                            }
+                        }
+                    } header: { Text("Recent checks") } footer: { Text("Only result summaries are saved on this device.") }
+                    Button("Delete all activity", role: .destructive) { confirmDelete = true }
+                }
+            }
+        }
+        .navigationTitle("Activity").navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog("Delete all saved checks?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Delete all activity", role: .destructive) { state.clear() }
+        }
     }
 }
 
@@ -114,13 +189,13 @@ struct SettingsView: View {
     @EnvironmentObject var state: AppState
     var body: some View {
         Form {
-            Section("Privacy") {
+            Section("Activity history") {
                 Toggle("Don't Save Activity", isOn: $state.dontSave)
                 Text("Turning this on deletes existing activity. Call list and preferences remain so protection still works.").font(.caption)
             }
             Section("Protection Review") {
-                Picker("Cadence", selection: $state.cadence) { Text("Off").tag(0); Text("Daily").tag(1); Text("Weekly (default)").tag(7); Text("Every 30 days").tag(30) }
-                Button("Enable / update reminder") { Task { await state.scheduleReview() } }.modifier(KabutoPrimaryAction())
+                Picker("Remind me", selection: $state.cadence) { Text("Off").tag(0); Text("Daily").tag(1); Text("Weekly (default)").tag(7); Text("Every 30 days").tag(30) }
+                Button(state.cadence == 0 ? "Turn off reminder" : "Set reminder") { Task { await state.scheduleReview() } }.modifier(KabutoPrimaryAction())
                 Text("Weekly is selected by default. Tap to allow notifications and schedule it. Delivery depends on iOS notification settings.").font(.caption)
             }
             Section { Text("No accounts, ads, analytics, breach searches, reverse lookup, or cloud history.") }

@@ -25,7 +25,7 @@ for identity, record in objects.items():
                 with (root / settings[key]).open('rb') as handle:
                     plistlib.load(handle)
 targets = [value for value in objects.values() if value['isa'] == 'PBXNativeTarget']
-assert len(targets) == 4
+assert {t['name'] for t in targets} == {'PrivacyGuard', 'MessageFilter', 'CallDirectory', 'ShareLink', 'KabutoUITests'}
 for target in targets:
     phases = [objects[phase] for phase in target['buildPhases']]
     assert any(phase['isa'] == 'PBXSourcesBuildPhase' and phase['files'] for phase in phases)

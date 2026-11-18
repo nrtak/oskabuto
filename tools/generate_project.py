@@ -118,11 +118,30 @@ for name in target_ids:
         phases.append(obj('embed-phase', 'PBXCopyFilesBuildPhase', buildActionMask='2147483647', dstPath='', dstSubfolderSpec='13', files=embed, name='Embed App Extensions', runOnlyForDeploymentPostprocessing='0'))
     targets.append(obj('target:' + name, 'PBXNativeTarget', name=name, productName=name, buildConfigurationList=config_list, buildPhases=phases, buildRules=[], dependencies=dependencies, productReference=product, productType='com.apple.product-type.application' if is_app else 'com.apple.product-type.app-extension'))
 
+# The UI test runner is built only by the scheme's Test action.
+ui_name = 'KabutoUITests'
+ui_source = obj('file:ui-tests', 'PBXFileReference', lastKnownFileType='sourcecode.swift', path='UITests/HomeFlowTests.swift', sourceTree='SOURCE_ROOT')
+ui_build = obj('build:ui-tests', 'PBXBuildFile', fileRef=ui_source)
+ui_phase = obj('sources:ui-tests', 'PBXSourcesBuildPhase', buildActionMask='2147483647', files=[ui_build], runOnlyForDeploymentPostprocessing='0')
+ui_product = obj('product:ui-tests', 'PBXFileReference', explicitFileType='wrapper.cfbundle', path=ui_name + '.xctest', sourceTree='BUILT_PRODUCTS_DIR')
+products.append(ui_product)
+ui_configs = [obj('ui-config:' + mode, 'XCBuildConfiguration', name=mode, buildSettings=dict(
+    PRODUCT_BUNDLE_IDENTIFIER=BUNDLE_ID + '.uitests', PRODUCT_NAME='$(TARGET_NAME)', GENERATE_INFOPLIST_FILE='YES',
+    IPHONEOS_DEPLOYMENT_TARGET='17.0', SDKROOT='iphoneos', TARGETED_DEVICE_FAMILY='1,2',
+    SWIFT_VERSION='5.0', TEST_TARGET_NAME='PrivacyGuard', SKIP_INSTALL='YES')) for mode in ['Debug', 'Release']]
+ui_config_list = obj('ui-configs', 'XCConfigurationList', buildConfigurations=ui_configs, defaultConfigurationIsVisible='0', defaultConfigurationName='Release')
+ui_proxy = obj('ui-app-proxy', 'PBXContainerItemProxy', containerPortal=ident('project'), proxyType='1', remoteGlobalIDString=target_ids['PrivacyGuard'], remoteInfo='PrivacyGuard')
+ui_dep = obj('ui-app-dependency', 'PBXTargetDependency', target=target_ids['PrivacyGuard'], targetProxy=ui_proxy)
+ui_target = obj('target:ui-tests', 'PBXNativeTarget', name=ui_name, productName=ui_name, buildConfigurationList=ui_config_list,
+                buildPhases=[ui_phase], buildRules=[], dependencies=[ui_dep], productReference=ui_product, productType='com.apple.product-type.bundle.ui-testing')
+targets.append(ui_target)
+
 product_group = obj('products', 'PBXGroup', children=products, name='Products', sourceTree='<group>')
-main_group = obj('main', 'PBXGroup', children=[ident('group:' + name) for name in target_ids] + [product_group], sourceTree='<group>')
+main_group = obj('main', 'PBXGroup', children=[ident('group:' + name) for name in target_ids] + [ui_source, product_group], sourceTree='<group>')
 project_configs = [obj('project-config:' + mode, 'XCBuildConfiguration', name=mode, buildSettings={'CLANG_ENABLE_MODULES': 'YES'}) for mode in ['Debug', 'Release']]
 project_config_list = obj('project-configs', 'XCConfigurationList', buildConfigurations=project_configs, defaultConfigurationIsVisible='0', defaultConfigurationName='Release')
 target_attributes = {target_ids[name]: {'SystemCapabilities': {'com.apple.ApplicationGroups.iOS': {'enabled': '1'}}} for name in ['PrivacyGuard', 'CallDirectory']}
+target_attributes[ui_target] = {'TestTargetID': target_ids['PrivacyGuard']}
 project = obj('project', 'PBXProject', attributes={'LastUpgradeCheck': '1600', 'TargetAttributes': target_attributes}, buildConfigurationList=project_config_list, compatibilityVersion='Xcode 14.0', developmentRegion='en', knownRegions=['en', 'Base'], mainGroup=main_group, productRefGroup=product_group, projectDirPath='', projectRoot='', targets=targets)
 content = '// !$*UTF8*$!\n' + serialize(dict(archiveVersion='1', classes={}, objectVersion='56', objects=objects, rootObject=project)) + '\n'
 (OUT / 'project.pbxproj').write_text(content, encoding='utf-8')
@@ -132,6 +151,7 @@ reference = f'<BuildableReference BuildableIdentifier="primary" BlueprintIdentif
 (scheme_dir / 'PrivacyGuard.xcscheme').write_text(f'''<?xml version="1.0" encoding="UTF-8"?>
 <Scheme LastUpgradeVersion="1600" version="1.3">
 <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES"><BuildActionEntries><BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">{reference}</BuildActionEntry></BuildActionEntries></BuildAction>
+<TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES"><Testables><TestableReference skipped="NO"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="{ui_target}" BuildableName="{ui_name}.xctest" BlueprintName="{ui_name}" ReferencedContainer="container:PrivacyGuard.xcodeproj"/></TestableReference></Testables></TestAction>
 <LaunchAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="YES"><BuildableProductRunnable runnableDebuggingMode="0">{reference}</BuildableProductRunnable></LaunchAction>
 <ProfileAction buildConfiguration="Release" shouldUseLaunchSchemeArgsEnv="YES" savedToolIdentifier="" useCustomWorkingDirectory="NO" debugDocumentVersioning="YES"><BuildableProductRunnable runnableDebuggingMode="0">{reference}</BuildableProductRunnable></ProfileAction>
 <AnalyzeAction buildConfiguration="Debug"/><ArchiveAction buildConfiguration="Release" revealArchiveInOrganizer="YES"/>

@@ -46,6 +46,13 @@ jobs:
           xcrun simctl launch "$SIMULATOR_ID" com.example.privacyguard -welcomed YES
           sleep 5
           xcrun simctl io "$SIMULATOR_ID" screenshot build/Prototype-preview.png
+          echo "KABUTO_TEST_SIMULATOR=$SIMULATOR_ID" >> "$GITHUB_ENV"
+      - name: Try Home, checker, and protection flows
+        run: |
+          xcodebuild test -project PrivacyGuard.xcodeproj -scheme PrivacyGuard \
+            -destination "platform=iOS Simulator,id=$KABUTO_TEST_SIMULATOR" \
+            -derivedDataPath build/DerivedData -parallel-testing-enabled NO \
+            -resultBundlePath build/FlowResults.xcresult CODE_SIGNING_ALLOWED=NO
       - name: Upload prototype preview
         uses: actions/upload-artifact@v4
         with:
