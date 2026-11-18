@@ -22,6 +22,7 @@ targets:
         CFBundleDisplayName: Privacy Guard
         UILaunchScreen: {}
         NSCameraUsageDescription: Scan QR codes locally to inspect their contents before opening them.
+        NSFaceIDUsageDescription: Kabuto checks whether Face ID is set up on this device.
     entitlements:
       path: Configuration/App.entitlements
       properties:

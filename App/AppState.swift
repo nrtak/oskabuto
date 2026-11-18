@@ -68,7 +68,7 @@ struct ActivityItem: Codable, Identifiable {
         do {
             guard try await center.requestAuthorization(options: [.alert, .sound]) else { notice = "Guided: allow notifications in Settings for reminders"; return }
             let content = UNMutableNotificationContent()
-            content.title = "Protection Review"; content.body = "Review call filtering, DNS, and device privacy settings."; content.sound = .default
+            content.title = "Protection Review"; content.body = "Review call filtering, Web Protection, and device privacy settings."; content.sound = .default
             let trigger = UNTimeIntervalNotificationTrigger(timeInterval: Double(cadence) * 86400, repeats: true)
             try await center.add(.init(identifier: "protection-review", content: content, trigger: trigger))
             notice = "Review scheduled every \(cadence) days"

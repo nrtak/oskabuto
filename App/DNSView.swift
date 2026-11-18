@@ -17,11 +17,11 @@ enum DNSChoice: String, CaseIterable, Identifiable {
     }
     var explanation: String {
         switch self {
-        case .quad9: return "Encrypted resolver with known malicious-domain blocking. DNS queries go to Quad9 under its privacy policy."
-        case .malware: return "Encrypted resolver with malware blocking. DNS queries go to Cloudflare under its privacy policy."
-        case .cloudflare: return "Encrypted resolver without malware blocking. DNS queries go to Cloudflare under its privacy policy."
-        case .system: return "Use your network's resolver after removing this app's DNS profile. Other profiles or VPNs may still override DNS."
-        case .custom: return "HTTPS DNS-over-HTTPS endpoint only. Your chosen provider receives DNS queries; check its trust and privacy policy."
+        case .quad9: return "Quad9 can block known harmful domains. It receives the domain names your device looks up."
+        case .malware: return "Cloudflare can block known malware domains. It receives the domain names your device looks up."
+        case .cloudflare: return "Cloudflare encrypts domain lookups. This option has no malware filter."
+        case .system: return "Use the provider chosen by your device or network. Filtering depends on that provider."
+        case .custom: return "Enter a DNS-over-HTTPS address from a provider you trust. It receives the domain names your device looks up."
         }
     }
 }
@@ -34,26 +34,25 @@ struct DNSView: View {
     private var choice: DNSChoice { DNSChoice(rawValue: stored) ?? .system }
     var body: some View {
         Form {
-            Section("Preferred resolver • not verified active") {
+            Section("Choose a provider") {
                 Picker("Provider", selection: $stored) { ForEach(DNSChoice.allCases) { Text($0.rawValue).tag($0.rawValue) } }
                 Text(choice.explanation)
                 if choice == .custom { TextField("https://resolver.example/dns-query", text: $custom).textInputAutocapitalization(.never).autocorrectionDisabled() }
             }
-            Section("Guided installation") {
+            Section("Set up in Settings · guided") {
                 if choice == .system {
-                    Text("Remove any Kabuto DNS profile in Settings → General → VPN & Device Management. Selecting System Default here does not change system DNS.")
+                    Text("Remove the Kabuto Web Protection profile (called Kabuto DNS in earlier versions) in Settings → General → VPN & Device Management. Selecting System Default here does not change system DNS.")
                 } else {
-                    Button("Prepare DNS profile") {
+                    Button("Create setup profile") {
                         do { profile = try DNSProfile.create(name: choice.rawValue, endpoint: choice == .custom ? custom : choice.endpoint) }
                         catch { state.notice = error.localizedDescription }
                     }
-                    if let profile { ShareLink("Export DNS profile", item: profile) }
+                    if let profile { ShareLink("Share setup profile", item: profile) }
                     Text("Export to Files, open the .mobileconfig file, then approve installation in Settings. The profile is unsigned and contains only the selected encrypted DNS endpoint. Inspect it before installing. Remove it to undo.")
                 }
-                Text("Guided: installation and active resolver are not verified. VPNs, network policy, and apps using their own DNS may affect coverage. DNS protects domain resolution, not all links or traffic.").font(.caption)
+                Text("Kabuto cannot verify which provider is active. Apps with their own DNS settings may use a different provider.").font(.caption)
             }
-            Section("Native integration stub") { Text("A future native setup can use NEDNSSettingsManager after signing with the DNS Settings Network Extension entitlement. This MVP exports a user-installed profile and never installs one silently.") }
-        }.navigationTitle("Secure DNS")
+        }.navigationTitle("Web Protection")
         .onChange(of: stored) { _, _ in profile = nil }
         .onChange(of: custom) { _, _ in profile = nil }
     }
@@ -74,7 +73,7 @@ enum DNSProfile {
         let container: [String: Any] = [
             "PayloadType": "Configuration", "PayloadVersion": 1,
             "PayloadIdentifier": "com.example.privacyguard.dns", "PayloadUUID": UUID().uuidString,
-            "PayloadDisplayName": "Kabuto DNS", "PayloadDescription": "User-selected encrypted DNS. Remove this profile to restore network DNS.",
+            "PayloadDisplayName": "Kabuto Web Protection", "PayloadDescription": "User-selected encrypted DNS. Remove this profile to restore network DNS.",
             "PayloadContent": [payload]
         ]
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("PrivacyGuard-DNS.mobileconfig")

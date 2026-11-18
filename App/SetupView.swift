@@ -12,7 +12,7 @@ struct ProtectionView: View {
                     Label { VStack(alignment: .leading) { Text("Call Protection"); Text(state.callStatus).font(.caption).foregroundStyle(.secondary) } } icon: { Image(systemName: "phone") }
                 }
                 NavigationLink { MessageDemoView() } label: { Label("Message Filter · guided", systemImage: "message") }
-                NavigationLink { DNSView() } label: { Label("Secure DNS · guided", systemImage: "network") }
+                NavigationLink { DNSView() } label: { Label("Web Protection · guided", systemImage: "globe") }
             }
         }.navigationTitle("Protection").navigationBarTitleDisplayMode(.inline)
         .onAppear { state.refreshCalls() }

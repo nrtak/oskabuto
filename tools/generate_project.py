@@ -50,7 +50,7 @@ target_ids = {name: ident('target:' + name) for name in ['PrivacyGuard', 'CallDi
 for name in target_ids:
     is_app = name == 'PrivacyGuard'
     sources = sorted((ROOT / ('App' if is_app else 'Extensions/' + name)).glob('*.swift'))
-    sources += [ROOT / 'Shared' / file for file in (['CallStore.swift', 'SafetyEngine.swift'] if is_app else ['CallStore.swift'] if name == 'CallDirectory' else ['SafetyEngine.swift'])]
+    sources += [ROOT / 'Shared' / file for file in (['CallStore.swift', 'SafetyEngine.swift', 'AppleReleaseCatalog.swift'] if is_app else ['CallStore.swift'] if name == 'CallDirectory' else ['SafetyEngine.swift'])]
     refs, builds = [], []
     for file in sources:
         path = file.relative_to(ROOT).as_posix()
@@ -78,6 +78,7 @@ for name in target_ids:
         settings['DEVELOPMENT_TEAM'] = TEAM_ID
     if is_app:
         info['ITSAppUsesNonExemptEncryption'] = False
+        info['NSFaceIDUsageDescription'] = 'Kabuto checks whether Face ID is set up on this device.'
         info_path = plist(name + '-Info.plist', info)
     if name in ['PrivacyGuard', 'CallDirectory']:
         settings['REGISTER_APP_GROUPS'] = 'YES'

@@ -130,7 +130,7 @@ struct SettingsView: View {
 
 struct PrivacyChecksView: View {
     @State private var reviewed: Set<String> = []
-    private let checks = ["Safari: review Prevent Cross-Site Tracking and Fraudulent Website Warning", "Other browsers: review tracking and safe browsing in each browser", "Device: review software updates and app permissions", "Device: review Location Services and App Tracking Transparency", "Device: review installed configuration profiles"]
+    private let checks = ["Safari: review Prevent Cross-Site Tracking and Fraudulent Website Warning", "Other browsers: review tracking and safe browsing in each browser", "Device: review app permissions", "Device: review Location Services and App Tracking Transparency", "Device: review installed configuration profiles"]
     var body: some View {
         List {
             Text("Guided checks. This app cannot read these settings or verify their values. Review marks are session-only self-reports.")

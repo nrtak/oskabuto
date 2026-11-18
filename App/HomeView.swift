@@ -20,7 +20,8 @@ private struct ToolBranches: Shape {
         var path = Path()
         let endpoints = [CGPoint(x: rect.width * 0.25, y: rect.minY),
                          CGPoint(x: rect.width * 0.75, y: rect.minY),
-                         CGPoint(x: rect.midX, y: rect.maxY)]
+                         CGPoint(x: rect.width * 0.25, y: rect.maxY),
+                         CGPoint(x: rect.width * 0.75, y: rect.maxY)]
         for endpoint in endpoints {
             path.move(to: CGPoint(x: rect.midX, y: rect.midY))
             path.addLine(to: endpoint)
@@ -43,7 +44,7 @@ struct HomeView: View {
                     }
                     ZStack {
                         if !textSize.isAccessibilitySize {
-                            ToolBranches().stroke(.teal.opacity(0.65), lineWidth: 2)
+                            ToolBranches().stroke(.blue.opacity(0.55), lineWidth: 2)
                                 .allowsHitTesting(false).accessibilityHidden(true)
                         }
                         VStack(spacing: 8) {
@@ -54,8 +55,10 @@ struct HomeView: View {
                         .padding(14).modifier(GlassTile(interactive: false)).padding(.vertical, 24)
                         .accessibilityAddTraits(.isHeader)
                     }.fixedSize(horizontal: false, vertical: true)
-                    tile("Review privacy", "checklist", .teal) { PrivacyChecksView() }
-                        .frame(maxWidth: textSize.isAccessibilitySize ? .infinity : 200)
+                    tileLayout {
+                        tile("Device Security", "lock.iphone", .indigo) { DeviceSecurityView() }
+                        tile("Network Check", "wifi", .blue) { NetworkCheckView() }
+                    }
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity, minHeight: viewport.size.height)
@@ -64,7 +67,7 @@ struct HomeView: View {
         .background {
             Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
             if !reduceTransparency {
-                RadialGradient(colors: [.mint.opacity(0.32), .teal.opacity(0.08), .clear],
+                RadialGradient(colors: [.blue.opacity(0.19), .indigo.opacity(0.06), .clear],
                                center: .init(x: 0.5, y: 0.32), startRadius: 16, endRadius: 330)
                     .ignoresSafeArea().allowsHitTesting(false)
             }
