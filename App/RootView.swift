@@ -19,56 +19,13 @@ struct RootView: View {
                     Text("A quieter, more private phone").font(.largeTitle.bold()).multilineTextAlignment(.center)
                     Text("Your checks stay on your device. Activity saving starts off. Call and message protection need your approval in Settings.")
                     Text("A weekly Protection Review is selected by default. Allow notifications to receive it; you can change the cadence anytime.").font(.callout)
-                    Button("Continue & enable weekly review") { welcomed = true; Task { await state.scheduleReview() } }.buttonStyle(.borderedProminent)
+                    Button("Continue & enable weekly review") { welcomed = true; Task { await state.scheduleReview() } }.modifier(KabutoPrimaryAction())
                     Button("Continue without notifications") { welcomed = true }
                 }.padding(28)
             }.interactiveDismissDisabled()
         }
         .onChange(of: scenePhase) { _, phase in if phase == .active { state.refreshCalls() } }
         .alert("Kabuto", isPresented: Binding(get: { !state.notice.isEmpty }, set: { if !$0 { state.notice = "" } })) { Button("OK") { state.notice = "" } } message: { Text(state.notice) }
-    }
-}
-
-struct HomeView: View {
-    @EnvironmentObject var state: AppState
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 12) {
-                    Image("AppMark").resizable().scaledToFit().frame(width: 52, height: 52).clipShape(RoundedRectangle(cornerRadius: 12)).accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Kabuto Mobile Security").font(.title3.bold()).fixedSize(horizontal: false, vertical: true)
-                        Text("Your privacy. Your control.").font(.subheadline)
-                    }
-                }.frame(maxWidth: .infinity, alignment: .leading).padding(16)
-                    .foregroundStyle(.white).background(LinearGradient(colors: [Color(red: 0.12, green: 0.20, blue: 0.32), Color(red: 0.20, green: 0.34, blue: 0.52)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 24))
-                Text("Protection overview").font(.headline)
-                VStack(spacing: 0) {
-                    NavigationLink { CallsView() } label: { status("Call Directory", state.callStatus, "phone") }.buttonStyle(.plain)
-                    Divider()
-                    NavigationLink { MessageDemoView() } label: { status("Message filter", "Guided • check Settings", "message") }.buttonStyle(.plain)
-                    Divider()
-                    NavigationLink { DNSView() } label: { status("Secure DNS", "Guided • check installed profile", "network") }.buttonStyle(.plain)
-                    Divider()
-                    NavigationLink { VPNReviewView() } label: { status("VPN", "Unknown • check Settings", "lock.shield") }.buttonStyle(.plain)
-                }.padding(.horizontal).background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
-                Text("Guided and unknown statuses need review in Settings. Statuses are not a safety guarantee.").font(.caption).foregroundStyle(.secondary)
-                HStack { Text("Safety tools").font(.headline); Spacer(); NavigationLink("Set up") { SetupView() }.font(.subheadline) }
-                VStack(spacing: 0) {
-                    NavigationLink { CheckerView() } label: { tool("Link Checker", "Inspect without opening", "link") }
-                    Divider()
-                    NavigationLink { CheckerView(qrMode: true) } label: { tool("QR Safety Scanner", "Scan before opening", "qrcode.viewfinder") }
-                    Divider()
-                    NavigationLink { PrivacyChecksView() } label: { tool("Privacy Review", "Browser and device checks", "checklist") }
-                }.background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
-            }.padding(16)
-        }.background(Color(.systemGroupedBackground)).navigationTitle("Home").navigationBarTitleDisplayMode(.inline)
-    }
-    private func status(_ title: String, _ detail: String, _ symbol: String) -> some View {
-        HStack(spacing: 12) { Image(systemName: symbol).foregroundStyle(.blue).frame(width: 24); VStack(alignment: .leading, spacing: 2) { Text(title).font(.subheadline.bold()); Text(detail).font(.caption).foregroundStyle(.secondary) }; Spacer(); Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary) }.padding(.vertical, 8).frame(minHeight: 44).contentShape(Rectangle())
-    }
-    private func tool(_ title: String, _ detail: String, _ symbol: String) -> some View {
-        HStack(spacing: 12) { Image(systemName: symbol).font(.title3).foregroundStyle(.blue).frame(width: 26); VStack(alignment: .leading, spacing: 2) { Text(title).font(.subheadline.bold()).foregroundStyle(.primary); Text(detail).font(.caption).foregroundStyle(.secondary) }; Spacer(); Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary) }.padding(.horizontal, 14).padding(.vertical, 10).frame(minHeight: 44).contentShape(Rectangle())
     }
 }
 
@@ -141,7 +98,7 @@ struct CheckerView: View {
         Form {
             if qrMode { Button("Scan QR with camera") { scanning = true } }
             TextField(qrMode ? "QR contents or link" : "https://example.com", text: $input, axis: .vertical).textInputAutocapitalization(.never).autocorrectionDisabled()
-            Button("Check locally") { check() }.disabled(input.isEmpty)
+            Button("Check locally") { check() }.modifier(KabutoPrimaryAction()).disabled(input.isEmpty)
             if let result {
                 Section(result.title) { ForEach(result.reasons, id: \.self) { Text($0) } }
             }
@@ -173,7 +130,7 @@ struct SettingsView: View {
             }
             Section("Protection Review") {
                 Picker("Cadence", selection: $state.cadence) { Text("Off").tag(0); Text("Daily").tag(1); Text("Weekly (default)").tag(7); Text("Every 30 days").tag(30) }
-                Button("Enable / update reminder") { Task { await state.scheduleReview() } }
+                Button("Enable / update reminder") { Task { await state.scheduleReview() } }.modifier(KabutoPrimaryAction())
                 Text("Weekly is selected by default. Tap to allow notifications and schedule it. Delivery depends on iOS notification settings.").font(.caption)
             }
             Section { Text("No accounts, ads, analytics, breach searches, reverse lookup, cloud history, or VPN service.") }
@@ -201,5 +158,17 @@ struct VPNReviewView: View {
             }
             Text("Kabuto does not provide a VPN service or change your VPN connection.")
         }.navigationTitle("VPN Status").navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct KabutoPrimaryAction: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 26, *), !reduceTransparency {
+            content.buttonStyle(.glassProminent)
+        } else {
+            content.buttonStyle(.borderedProminent)
+        }
     }
 }

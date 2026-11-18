@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   prototype:
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +43,7 @@ jobs:
           xcrun simctl boot "$SIMULATOR_ID"
           xcrun simctl bootstatus "$SIMULATOR_ID" -b
           xcrun simctl install "$SIMULATOR_ID" build/DerivedData/Build/Products/Debug-iphonesimulator/PrivacyGuard.app
-          xcrun simctl launch "$SIMULATOR_ID" com.example.privacyguard
+          xcrun simctl launch "$SIMULATOR_ID" com.example.privacyguard -welcomed YES
           sleep 5
           xcrun simctl io "$SIMULATOR_ID" screenshot build/Prototype-preview.png
       - name: Upload prototype preview
