@@ -141,6 +141,27 @@ final class HomeFlowTests: XCTestCase {
         }
     }
 
+    func testMessageCheckExplainsTheWarning() {
+        openHomeAction("Check a link or message")
+        app.segmentedControls.buttons["Message"].tap()
+        let input = app.descendants(matching: .any)["messageInput"].firstMatch
+        input.tap()
+        input.typeText("Urgent: send a gift card")
+        app.buttons["Check message"].tap()
+        XCTAssertTrue(app.staticTexts["Possible scam"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "gift card")).count > 0)
+    }
+
+    func testProvidersAreVisibleAndSelectable() {
+        app.tabBars.buttons["Protection"].tap()
+        openHomeAction("Web Protection")
+        for provider in ["Quad9 Secure", "Cloudflare Malware Blocking", "Cloudflare 1.1.1.1", "Google Public DNS", "System Default", "Custom DNS"] {
+            XCTAssertTrue(app.buttons[provider].exists, provider)
+        }
+        app.buttons["Google Public DNS"].tap()
+        XCTAssertTrue(app.buttons["Google Public DNS"].isSelected)
+    }
+
     func testWebProtectionKeepsInstallationGuidanceAfterCreatingProfile() {
         app.terminate()
         app.launchArguments += ["-dnsChoice", "Quad9 Secure"]

@@ -7,15 +7,14 @@ struct NetworkCheckView: View {
     var body: some View {
         List {
             Section("Current connection") {
-                LabeledContent("Network path", value: connectionStatus)
+                LabeledContent("Network path") { StatusLabel(status: connectionStatus) }
                 if let path, path.status == .satisfied {
                     LabeledContent("Connection type", value: interfaceNames(path))
                 }
             }
             Section("Wi-Fi security · guided") {
-                Text("Open Settings → Wi-Fi and tap the information button beside your network. Look for a Weak Security or Privacy Warning.")
-                Text("Kabuto checks the connection type locally. Wi-Fi encryption and the network operator’s identity need your review.")
-                    .font(.footnote).foregroundStyle(.secondary)
+                StatusLabel(status: .unverified("Wi-Fi security not verified"))
+                SettingsSteps(steps: ["Open Wi-Fi in Settings.", "Tap the info button beside your network.", "Look for Weak Security or Privacy Warning."])
             }
         }
         .navigationTitle("Network Check").navigationBarTitleDisplayMode(.inline)
@@ -30,13 +29,13 @@ struct NetworkCheckView: View {
         }
     }
 
-    private var connectionStatus: String {
-        guard let path else { return "Checking…" }
+    private var connectionStatus: CheckStatus {
+        guard let path else { return .pending("Checking…") }
         switch path.status {
-        case .satisfied: return "Available · verified"
-        case .unsatisfied: return "Unavailable · verified"
-        case .requiresConnection: return "Connection needed · verified"
-        @unknown default: return "Unknown"
+        case .satisfied: return .verified("Available · verified")
+        case .unsatisfied: return .attention("Unavailable")
+        case .requiresConnection: return .attention("Connection needed")
+        @unknown default: return .unverified("Not verified")
         }
     }
 

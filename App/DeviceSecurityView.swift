@@ -4,21 +4,20 @@ import SwiftUI
 
 struct DeviceSecurityView: View {
     @Environment(\.scenePhase) private var phase
-    @State private var passcode = "Checking…"
+    @State private var passcode = CheckStatus.pending("Checking…")
     @State private var biometricName = "Biometrics"
-    @State private var biometrics = "Checking…"
-    @State private var releaseResult = ""
+    @State private var biometrics = CheckStatus.pending("Checking…")
+    @State private var releaseResult: CheckStatus?
     @State private var checkingRelease = false
 
     var body: some View {
         List {
             Section("Screen lock") {
-                LabeledContent("Device passcode", value: passcode)
-                LabeledContent(biometricName, value: biometrics)
-                Text("These checks run on your device without asking you to unlock it.").font(.footnote)
+                LabeledContent("Device passcode") { StatusLabel(status: passcode) }
+                LabeledContent(biometricName) { StatusLabel(status: biometrics) }
             }
             Section("Software update") {
-                LabeledContent("Installed · verified", value: "\(UIDevice.current.systemName) \(UIDevice.current.systemVersion)")
+                LabeledContent("Installed version") { StatusLabel(status: .verified("\(UIDevice.current.systemName) \(UIDevice.current.systemVersion) · verified")) }
                 Button(checkingRelease ? "Checking Apple’s releases…" : "Check for a newer release") {
                     checkingRelease = true
                     Task {
@@ -26,11 +25,12 @@ struct DeviceSecurityView: View {
                         checkingRelease = false
                     }
                 }.disabled(checkingRelease)
-                if !releaseResult.isEmpty { Text(releaseResult) }
+                if checkingRelease { ProgressView("Checking") }
+                else if let releaseResult { StatusLabel(status: releaseResult) }
                 Text("This downloads Apple’s public release list. Kabuto compares your model and version locally.").font(.footnote)
             }
             Section("Check in Settings · guided") {
-                Text("Open Settings → General → Software Update to see the update or security fixes Apple offers this device.")
+                SettingsSteps(steps: ["Open Settings.", "Tap General.", "Open Software Update to see available updates."])
             }
         }
         .navigationTitle("Device Security").navigationBarTitleDisplayMode(.inline)
@@ -42,9 +42,9 @@ struct DeviceSecurityView: View {
         let context = LAContext()
         var error: NSError?
         if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
-            passcode = "Set · verified"
+            passcode = .verified("Set · verified")
         } else {
-            passcode = (error as? LAError)?.code == .passcodeNotSet ? "Not set · verified" : "Unknown"
+            passcode = (error as? LAError)?.code == .passcodeNotSet ? .attention("No passcode set") : .unverified("Not verified")
         }
         var biometricError: NSError?
         let available = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &biometricError)
@@ -54,20 +54,20 @@ struct DeviceSecurityView: View {
         default: biometricName = "Biometrics"
         }
         if available {
-            biometrics = "Set up · verified"
+            biometrics = .verified("Set up · verified")
         } else {
             switch (biometricError as? LAError)?.code {
-            case .biometryNotEnrolled: biometrics = "Not set up · verified"
-            case .biometryLockout: biometrics = "Temporarily locked · verified"
-            default: biometrics = "Unavailable to Kabuto"
+            case .biometryNotEnrolled: biometrics = .attention("Not set up")
+            case .biometryLockout: biometrics = .attention("Temporarily locked")
+            default: biometrics = .unverified("Not verified")
             }
         }
     }
 }
 
 private enum AppleReleaseCheck {
-    @MainActor static func result() async -> String {
-        let fallback = "Couldn’t confirm a release for this device. Check Software Update in Settings."
+    @MainActor static func result() async -> CheckStatus {
+        let fallback = CheckStatus.unverified("Latest version not verified. Check Settings.")
         var machineInfo = utsname()
         guard uname(&machineInfo) == 0 else { return fallback }
         let model = withUnsafeBytes(of: &machineInfo.machine) {
@@ -88,9 +88,9 @@ private enum AppleReleaseCheck {
             guard let latest = catalog.latestVersion(for: model, on: today) else { return fallback }
             let installed = UIDevice.current.systemVersion
             switch installed.compare(latest, options: .numeric) {
-            case .orderedSame: return "Your version matches Apple’s latest listed public release for this model (\(latest))."
-            case .orderedAscending: return "Apple lists a newer version for this model (\(latest)). Check Software Update to install it."
-            default: return "Your version is newer than Apple’s listed public release (\(latest)). Check availability in Settings."
+            case .orderedSame: return .verified("Matches Apple’s listed release · \(latest)")
+            case .orderedAscending: return .attention("Newer release listed · \(latest)")
+            default: return .unverified("Update status not verified. Apple lists \(latest).")
             }
         } catch { return fallback }
     }

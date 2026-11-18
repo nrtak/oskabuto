@@ -7,6 +7,19 @@ struct SafetyResult: Equatable {
     let suspicious: Bool
 }
 
+struct MessageCheck {
+    let urgency: String?
+    let request: String?
+    var matchesJunkRule: Bool { urgency != nil && request != nil }
+
+    var advice: String {
+        if request == "password" { return "Open the service’s official app to check your account. Keep your password private." }
+        if request == "gift card" { return "Verify the request with the person using a phone number you already know before buying a card." }
+        if request != nil || urgency != nil { return "Open the organization’s official app or contact it using a number you already know." }
+        return "These local checks cannot verify the sender. Confirm unexpected requests through a familiar channel."
+    }
+}
+
 enum SafetyEngine {
     static func check(_ input: String) -> SafetyResult {
         guard let url = URL(string: input.trimmingCharacters(in: .whitespacesAndNewlines)),
@@ -23,10 +36,12 @@ enum SafetyEngine {
         return .init(destination: host, title: reasons.isEmpty ? "No local warning found" : "Review before opening", reasons: reasons, suspicious: !reasons.isEmpty)
     }
 
-    static func isJunk(_ body: String) -> Bool {
+    static func checkMessage(_ body: String) -> MessageCheck {
         let text = body.lowercased()
-        let urgent = ["urgent", "immediately", "account suspended", "unpaid toll"].contains { text.contains($0) }
-        let request = ["http://", "https://", "gift card", "pay now", "password"].contains { text.contains($0) }
-        return urgent && request
+        let urgency = ["urgent", "immediately", "account suspended", "unpaid toll"].first { text.contains($0) }
+        let request = ["password", "gift card", "pay now", "https://", "http://"].first { text.contains($0) }
+        return MessageCheck(urgency: urgency, request: request)
     }
+
+    static func isJunk(_ body: String) -> Bool { checkMessage(body).matchesJunkRule }
 }

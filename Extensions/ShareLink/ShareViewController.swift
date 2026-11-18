@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 final class ShareViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
-        show(nil, message: "Reading the shared link…")
+        show(nil, message: "Reading shared content…")
         Task { @MainActor in
             let providers = (extensionContext?.inputItems as? [NSExtensionItem] ?? []).flatMap { $0.attachments ?? [] }
             for provider in providers {
@@ -16,18 +16,25 @@ final class ShareViewController: UIViewController {
                         if let url = value as? URL { input = url.absoluteString }
                         else { input = value as? String }
                         if let input, input.utf8.count <= 16384 {
-                            show(SafetyEngine.check(input), message: "")
+                            let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !trimmed.isEmpty else { continue }
+                            let link = SafetyEngine.check(trimmed)
+                            if type == UTType.plainText.identifier && (link.destination == nil || trimmed.contains(where: { $0.isWhitespace })) {
+                                show(nil, message: "", assessment: SafetyEngine.checkMessage(trimmed))
+                            } else {
+                                show(link, message: "")
+                            }
                             return
                         }
                     } catch { continue }
                 }
             }
-            show(nil, message: "Share one link to check it, or paste it into Kabuto’s Link Checker.")
+            show(nil, message: "Share a link or a short message, or paste the text into Kabuto.")
         }
     }
-    @MainActor private func show(_ result: SafetyResult?, message: String) {
+    @MainActor private func show(_ result: SafetyResult?, message: String, assessment: MessageCheck? = nil) {
         for child in children { child.willMove(toParent: nil); child.view.removeFromSuperview(); child.removeFromParent() }
-        let host = UIHostingController(rootView: SharedLinkView(result: result, message: message) { [weak self] in
+        let host = UIHostingController(rootView: SharedLinkView(result: result, message: message, assessment: assessment) { [weak self] in
             self?.extensionContext?.completeRequest(returningItems: nil)
         })
         addChild(host); view.addSubview(host.view)
@@ -40,14 +47,17 @@ final class ShareViewController: UIViewController {
 private struct SharedLinkView: View {
     let result: SafetyResult?
     let message: String
+    let assessment: MessageCheck?
     let done: () -> Void
     var body: some View {
         NavigationStack {
             List {
                 if let result {
                     CheckResultSection(result: result)
+                } else if let assessment {
+                    MessageResultSection(result: assessment)
                 } else { Text(message) }
-            }.navigationTitle("Kabuto Link Check").navigationBarTitleDisplayMode(.inline)
+            }.navigationTitle("Check with Kabuto").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done", action: done) } }
         }
     }

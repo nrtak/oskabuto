@@ -30,4 +30,17 @@ final class SafetyEngineTests: XCTestCase {
         XCTAssertFalse(SafetyEngine.isJunk("Visit https://example.com"))
         XCTAssertTrue(SafetyEngine.isJunk("Unpaid toll: pay now https://example.com"))
     }
+
+    func testMessageCheckExplainsTheFilterDecision() {
+        let message = "URGENT: Send a gift card immediately."
+        let check = SafetyEngine.checkMessage(message)
+        XCTAssertEqual(check.urgency, "urgent")
+        XCTAssertEqual(check.request, "gift card")
+        XCTAssertTrue(check.advice.contains("phone number"))
+        XCTAssertEqual(check.matchesJunkRule, SafetyEngine.isJunk(message))
+        let ordinary = SafetyEngine.checkMessage("Lunch is at noon.")
+        XCTAssertNil(ordinary.request)
+        XCTAssertNil(ordinary.urgency)
+        XCTAssertFalse(ordinary.matchesJunkRule)
+    }
 }

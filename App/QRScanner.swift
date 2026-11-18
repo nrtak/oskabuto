@@ -1,6 +1,65 @@
 import SwiftUI
 import VisionKit
 import AVFoundation
+import PhotosUI
+import Vision
+import ImageIO
+
+struct QRPhotoPicker: View {
+    let onStart: () -> Void
+    let onScan: (String) -> Void
+    @State private var selected: PhotosPickerItem?
+    @State private var candidates: [String] = []
+    @State private var message = ""
+
+    var body: some View {
+        PhotosPicker(selection: $selected, matching: .images) {
+            Label("Choose a screenshot or photo", systemImage: "photo")
+        }
+        .task(id: selected) {
+            guard let selected else { return }
+            onStart()
+            message = "Reading QR codes…"
+            candidates = []
+            do {
+                guard let data = try await selected.loadTransferable(type: Data.self) else { throw CocoaError(.fileReadCorruptFile) }
+                let values = try await Self.decode(data)
+                try Task.checkCancellation()
+                if values.count == 1 {
+                    message = ""
+                    onScan(values[0])
+                } else {
+                    message = values.isEmpty ? "No readable QR code found. Try a clearer image or enter its contents." : "Choose a QR code to inspect."
+                    candidates = values
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+                message = "Couldn’t read that image. Try another photo or enter the QR contents."
+            }
+            self.selected = nil
+        }
+        if !message.isEmpty { Text(message).font(.footnote) }
+        ForEach(candidates, id: \.self) { value in
+            Button {
+                message = ""; candidates = []; onScan(value)
+            } label: { Text(verbatim: value).lineLimit(3) }
+        }
+    }
+
+    private nonisolated static func decode(_ data: Data) async throws -> [String] {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: 3072
+              ] as CFDictionary) else { throw CocoaError(.fileReadCorruptFile) }
+        let request = VNDetectBarcodesRequest()
+        request.symbologies = [.qr]
+        try VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
+        var seen: Set<String> = []
+        return (request.results ?? []).compactMap(\.payloadStringValue).filter { !$0.isEmpty && seen.insert($0).inserted }
+    }
+}
 
 struct QRScanner: View {
     let onScan: (String) -> Void

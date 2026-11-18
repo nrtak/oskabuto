@@ -28,7 +28,7 @@ struct HomeView: View {
 
                 homeSection("Safety Tools") {
                     actionLayout {
-                        actionCard("Check a link", symbol: "link") { CheckerView() }
+                        actionCard("Check a link or message", symbol: "link") { TextSafetyView() }
                         actionCard("Scan a QR code", symbol: "qrcode.viewfinder") { CheckerView(qrMode: true) }
                     }
                 }

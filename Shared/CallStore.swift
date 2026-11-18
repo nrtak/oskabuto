@@ -1,6 +1,6 @@
 import Foundation
 
-struct CallEntry: Codable, Identifiable {
+struct CallEntry: Codable, Identifiable, Equatable {
     var id: Int64 { number }
     let number: Int64
     let label: String

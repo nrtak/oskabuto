@@ -4,6 +4,7 @@ enum DNSChoice: String, CaseIterable, Identifiable {
     case quad9 = "Quad9 Secure"
     case malware = "Cloudflare Malware Blocking"
     case cloudflare = "Cloudflare 1.1.1.1"
+    case google = "Google Public DNS"
     case system = "System Default"
     case custom = "Custom DNS"
     var id: String { rawValue }
@@ -12,6 +13,7 @@ enum DNSChoice: String, CaseIterable, Identifiable {
         case .quad9: return "https://dns.quad9.net/dns-query"
         case .malware: return "https://security.cloudflare-dns.com/dns-query"
         case .cloudflare: return "https://cloudflare-dns.com/dns-query"
+        case .google: return "https://dns.google/dns-query"
         default: return ""
         }
     }
@@ -20,6 +22,7 @@ enum DNSChoice: String, CaseIterable, Identifiable {
         case .quad9: return "Quad9 can block known harmful domains. It receives the domain names your device looks up."
         case .malware: return "Cloudflare can block known malware domains. It receives the domain names your device looks up."
         case .cloudflare: return "Cloudflare encrypts domain lookups. This option has no malware filter."
+        case .google: return "Google receives and encrypts your DNS lookups in transit. This is a general-purpose resolver."
         case .system: return "Use the provider chosen by your device or network. Filtering depends on that provider."
         case .custom: return "Enter a DNS-over-HTTPS address from a provider you trust. It receives the domain names your device looks up."
         }
@@ -35,7 +38,21 @@ struct DNSView: View {
     var body: some View {
         Form {
             Section("1. Choose provider") {
-                Picker("Provider", selection: $stored) { ForEach(DNSChoice.allCases) { Text($0.rawValue).tag($0.rawValue) } }
+                ForEach(DNSChoice.allCases) { option in
+                    Button {
+                        stored = option.rawValue
+                    } label: {
+                        HStack {
+                            Text(option.rawValue).foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: choice == option ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(choice == option ? Color.accentColor : .secondary)
+                                .accessibilityHidden(true)
+                        }.frame(minHeight: 44).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(choice == option ? .isSelected : [])
+                }
                 Text(choice.explanation)
                 if choice == .custom {
                     TextField("https://resolver.example/dns-query", text: $custom)
@@ -44,13 +61,15 @@ struct DNSView: View {
             }
             if choice == .system {
                 Section("Use System Default") {
-                    Text("If you installed Kabuto Web Protection (formerly Kabuto DNS), remove its profile in Settings → General → VPN & Device Management.")
-                    Text("Choosing System Default here only changes your selection in Kabuto.").font(.footnote)
+                    Text("If a Kabuto profile is installed, remove it to return to system DNS.")
+                    DisclosureGroup("Check in Settings") {
+                        SettingsSteps(steps: ["Open General in Settings.", "Tap VPN & Device Management.", "Select Kabuto Web Protection or Kabuto DNS and tap Remove Profile."])
+                    }
                 }
             } else {
                 Section("2. Create profile") {
                     if let profile {
-                        Label("Profile created", systemImage: "checkmark.circle")
+                        StatusLabel(status: .verified("Profile created"))
                         ShareLink("Export setup profile", item: profile)
                     } else {
                         Button("Create setup profile") {
@@ -60,10 +79,8 @@ struct DNSView: View {
                     }
                 }
                 Section("3. Install in Settings") {
-                    Text("Export the profile using Save to Files, then open the saved file.")
-                    Text("In Settings, tap Profile Downloaded. Review the unsigned Kabuto Web Protection profile and tap Install.")
-                    Text("Check the installed profile in Settings → General → VPN & Device Management. You can also remove it there.").font(.footnote)
-                    Text("Guided setup. Kabuto cannot confirm which provider is active. Some apps use their own DNS.").font(.footnote).foregroundStyle(.secondary)
+                    StatusLabel(status: .unverified("Active provider not verified"))
+                    SettingsSteps(steps: ["Export using Save to Files.", "Open the saved profile.", "In Settings, tap Profile Downloaded.", "Review the unsigned Kabuto profile and tap Install."])
                 }
             }
         }.navigationTitle("Web Protection")

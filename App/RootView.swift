@@ -60,10 +60,11 @@ struct CallsView: View {
     @State private var number = ""
     @State private var label = ""
     @State private var blocked = false
+    @State private var editingEntry: CallEntry?
     var body: some View {
         Form {
             Section("Call directory") {
-                Text(state.callStatus)
+                StatusLabel(status: state.callStatus)
                 Button("Open call blocking settings") {
                     Task {
                         do { try await CXCallDirectoryManager.sharedInstance.openSettings() }
@@ -71,7 +72,10 @@ struct CallsView: View {
                     }
                 }
                 Button("Refresh status") { state.refreshCalls() }
-                Text("Enable Kabuto in Settings → Apps → Phone → Call Blocking & Identification. The app cannot read incoming calls or call history.") }
+                DisclosureGroup("Check in Settings") {
+                    SettingsSteps(steps: ["Open Phone settings.", "Tap Call Blocking & Identification.", "Turn on Kabuto."])
+                }
+            }
             Section("Add a number") {
                 TextField("Country code + number (e.g. +14155550123)", text: $number).keyboardType(.phonePad)
                 TextField("Caller label", text: $label)
@@ -93,28 +97,127 @@ struct CallsView: View {
                     Button("Retry loading numbers") { state.reloadLocalData() }
                 }
             } else if !state.calls.isEmpty { Section("Your numbers") {
-                ForEach(state.calls) { entry in VStack(alignment: .leading) { Text("+\(entry.number)"); Text(entry.blocked ? "On your block list" : entry.label).font(.caption) } }
+                ForEach(state.calls) { entry in
+                    Button {
+                        editingEntry = entry
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text("+\(entry.number)")
+                                Text(entry.blocked ? "Block" : "Label only · \(entry.label)").font(.caption)
+                            }
+                            Spacer()
+                            Image(systemName: "pencil").accessibilityHidden(true)
+                        }
+                    }
+                }
                     .onDelete { offsets in var entries = state.calls; entries.remove(atOffsets: offsets); state.saveCalls(entries) }
             } }
+            if state.previousCallList != nil && !state.callsUnavailable {
+                Button("Undo last change", systemImage: "arrow.uturn.backward") { state.undoCallChange() }
+            }
             Text("Call Protection uses the numbers you add here. Live Caller ID and reputation lookups are unavailable.").font(.caption)
         }.navigationTitle("Call Protection")
+        .sheet(item: $editingEntry) { entry in
+            EditCallRule(entry: entry) { changed in
+                guard !state.callsUnavailable, state.calls.contains(entry) else { return false }
+                return state.saveCalls(state.calls.filter { $0.number != changed.number } + [changed])
+            }
+        }
+    }
+}
+
+private struct EditCallRule: View {
+    let entry: CallEntry
+    let save: (CallEntry) -> Bool
+    @Environment(\.dismiss) private var dismiss
+    @State private var blocked: Bool
+    @State private var label: String
+    @State private var saveFailed = false
+
+    init(entry: CallEntry, save: @escaping (CallEntry) -> Bool) {
+        self.entry = entry
+        self.save = save
+        _blocked = State(initialValue: entry.blocked)
+        _label = State(initialValue: entry.label)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("+\(entry.number)") {
+                    Picker("When this number calls", selection: $blocked) {
+                        Text("Label only").tag(false)
+                        Text("Block").tag(true)
+                    }.pickerStyle(.segmented)
+                    if !blocked { TextField("Caller label", text: $label) }
+                    if saveFailed { Text("Couldn’t update this rule. Reopen it and try again.").font(.footnote) }
+                }
+            }
+            .navigationTitle("Edit call rule").navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        let name = String(label.trimmingCharacters(in: .whitespacesAndNewlines).prefix(80))
+                        if save(.init(number: entry.number, label: name, blocked: blocked)) { dismiss() }
+                        else { saveFailed = true }
+                    }.disabled(!blocked && label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
     }
 }
 
 struct MessageDemoView: View {
-    @State private var text = ""
-    @State private var result = ""
     var body: some View {
         Form {
-            Text("Guided status: enable Kabuto under Settings → Apps → Messages → Unknown & Spam. iOS provides no enabled-status query for this filter. It applies to eligible unknown-sender SMS/MMS, not iMessage or third-party apps.")
-            Section("Try the on-device rules") {
-                TextEditor(text: $text).frame(minHeight: 120)
-                Button("Test classification") { result = SafetyEngine.isJunk(text) ? "Junk: urgency plus a link or sensitive/payment request." : "No filter decision: passed back to iOS. This does not prove legitimacy." }
-                if !result.isEmpty { Text(result) }
+            StatusLabel(status: .unverified("Message filter not verified"))
+            DisclosureGroup("Check in Settings") {
+                SettingsSteps(steps: ["Open Messages settings.", "Find the settings for unknown senders or text message filtering.", "Select Kabuto as the SMS filter."])
             }
-            Text("Conservative prototype rules can miss scams or flag legitimate messages. Message contents and senders are never saved or sent to a server.")
+            NavigationLink("Check a message") { MessageCheckView() }
+            Text("Applies to eligible SMS and MMS from unknown senders. Filtering runs on your device.").font(.footnote)
         }.navigationTitle("Message Filter")
-        .onChange(of: text) { _, _ in result = "" }
+    }
+}
+
+struct TextSafetyView: View {
+    private enum Mode: Hashable { case link, message }
+    @State private var mode = Mode.link
+    var body: some View {
+        VStack(spacing: 0) {
+            Picker("What to check", selection: $mode) {
+                Text("Link").tag(Mode.link)
+                Text("Message").tag(Mode.message)
+            }.pickerStyle(.segmented).padding(.horizontal).padding(.vertical, 8)
+            switch mode {
+            case .link: CheckerView()
+            case .message: MessageCheckView()
+            }
+        }
+    }
+}
+
+struct MessageCheckView: View {
+    @State private var text = ""
+    @State private var checkedText: String?
+    @FocusState private var editing: Bool
+    var body: some View {
+        Form {
+            Section("Message text") {
+                TextField("Paste or type a message", text: $text, axis: .vertical)
+                    .lineLimit(2...8).focused($editing).accessibilityIdentifier("messageInput")
+                PasteButton(payloadType: String.self) { items in if let first = items.first { text = first } }
+                Button("Check message") { editing = false; checkedText = text }
+                    .modifier(KabutoPrimaryAction())
+                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            if checkedText == text { MessageResultSection(result: SafetyEngine.checkMessage(text)) }
+            Text("Message checks run on this device. The message and its result stay out of Activity.").font(.footnote)
+        }
+        .navigationTitle("Check a message").navigationBarTitleDisplayMode(.inline)
+        .onChange(of: text) { _, _ in checkedText = nil }
     }
 }
 
@@ -129,7 +232,13 @@ struct CheckerView: View {
     var body: some View {
         Form {
             Section(qrMode ? "QR contents" : "Link to check") {
-                if qrMode { Button("Scan with camera", systemImage: "camera") { scanning = true } }
+                if qrMode {
+                    Button("Scan with camera", systemImage: "camera") { scanning = true }
+                    QRPhotoPicker(onStart: { editing = false; input = ""; checked = nil }) { value in
+                        input = value
+                        check(value)
+                    }
+                }
                 TextField(qrMode ? "Enter QR contents" : "Enter a web address",
                           text: $input, axis: .vertical)
                     .textInputAutocapitalization(.never).autocorrectionDisabled().focused($editing)
@@ -257,17 +366,17 @@ struct PrivacyChecksView: View {
     var body: some View {
         List {
             Section {
-                check("Cross-site tracking", "Find Safari in Settings. Review Prevent Cross-Site Tracking.")
-                check("Website warnings", "In Safari settings, look for Fraudulent Website Warning.")
-                check("Other browsers", "Open your browser’s privacy settings. Review tracking protection and safe browsing.")
+                check("Cross-site tracking", ["Open Safari settings.", "Review Prevent Cross-Site Tracking."])
+                check("Website warnings", ["Open Safari settings.", "Review Fraudulent Website Warning."])
+                check("Other browsers", ["Open your browser’s privacy settings.", "Review tracking protection and safe browsing."])
             } header: {
                 Label("Browsing", systemImage: "safari")
             }
             Section {
-                check("App permissions", "In Settings → Privacy & Security, check which apps can use your camera, microphone, and photos.")
-                check("Location access", "Open Settings → Privacy & Security → Location Services. Review access for each app.")
-                check("App tracking", "Open Settings → Privacy & Security → Tracking. Review which apps can request tracking.")
-                check("Configuration profiles", "In Settings → General → VPN & Device Management, review any installed profiles.")
+                check("App permissions", ["Open Privacy & Security in Settings.", "Choose Camera, Microphone, or Photos.", "Review which apps have access."])
+                check("Location access", ["Open Privacy & Security in Settings.", "Tap Location Services.", "Review access for each app."])
+                check("App tracking", ["Open Privacy & Security in Settings.", "Tap Tracking.", "Review which apps can request tracking."])
+                check("Configuration profiles", ["Open General in Settings.", "Tap VPN & Device Management.", "Review any installed profiles."])
             } header: {
                 Label("Apps & device", systemImage: "iphone")
             } footer: {
@@ -277,11 +386,12 @@ struct PrivacyChecksView: View {
         .navigationTitle("Privacy Checks").navigationBarTitleDisplayMode(.inline)
     }
 
-    private func check(_ title: String, _ instruction: String) -> some View {
+    private func check(_ title: String, _ steps: [String]) -> some View {
         let isReviewed = reviewed.contains(title)
         return DisclosureGroup {
             VStack(alignment: .leading, spacing: 8) {
-                Text(instruction).font(.subheadline).foregroundStyle(.secondary)
+                StatusLabel(status: .unverified("Setting not verified")).font(.subheadline)
+                SettingsSteps(steps: steps).font(.subheadline)
                 Button(isReviewed ? "Undo review" : "Mark as reviewed") {
                     if isReviewed { reviewed.remove(title) } else { reviewed.insert(title) }
                 }

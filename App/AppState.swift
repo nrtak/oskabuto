@@ -12,8 +12,11 @@ struct ActivityItem: Codable, Identifiable {
     @Published private(set) var activities: [ActivityItem] = []
     @Published private(set) var activityUnavailable = false
     @Published private(set) var calls: [CallEntry] = []
+    @Published private(set) var previousCallList: [CallEntry]?
+    private var callRevision = UUID()
     @Published private(set) var callsUnavailable = false
-    @Published var callStatus = "Not yet checked"
+    @Published var callStatus = CheckStatus.pending("Checking…")
+    @Published private(set) var callFilterEnabled: Bool?
     @Published var notice = ""
     @Published private(set) var dontSave: Bool
     @Published private(set) var cadence: Int
@@ -49,7 +52,9 @@ struct ActivityItem: Codable, Identifiable {
             activityUnavailable = true
         }
         do {
-            calls = try CallStore.read()
+            let loaded = try CallStore.read()
+            if loaded != calls { previousCallList = nil }
+            calls = loaded
             callsUnavailable = false
         } catch {
             callsUnavailable = true
@@ -104,18 +109,36 @@ struct ActivityItem: Codable, Identifiable {
     func refreshCalls() {
         CXCallDirectoryManager.sharedInstance.getEnabledStatusForExtension(withIdentifier: Self.extensionID) { status, error in
             Task { @MainActor in
-                self.callStatus = error.map { "Unavailable: \($0.localizedDescription)" } ?? (status == .enabled ? "Verified: extension enabled" : status == .disabled ? "Verified: extension disabled" : "Unknown")
+                self.callFilterEnabled = error == nil && status != .unknown ? status == .enabled : nil
+                switch self.callFilterEnabled {
+                case true: self.callStatus = .verified("Enabled · verified")
+                case false: self.callStatus = .attention("Call Protection is off")
+                default: self.callStatus = .unverified("Not verified")
+                }
             }
         }
     }
+    func undoCallChange() {
+        guard let previousCallList else { return }
+        if saveCalls(previousCallList) { self.previousCallList = nil }
+    }
+
     @discardableResult func saveCalls(_ entries: [CallEntry]) -> Bool {
         guard !callsUnavailable else { return false }
         do {
             let ordered = entries.sorted { $0.number < $1.number }
+            guard ordered != calls else { return true }
             try CallStore.write(ordered)
+            previousCallList = calls
             calls = ordered
+            let revision = UUID()
+            callRevision = revision
             CXCallDirectoryManager.sharedInstance.reloadExtension(withIdentifier: Self.extensionID) { error in
-                Task { @MainActor in self.notice = error.map { "Saved locally; reload failed: \($0.localizedDescription)" } ?? "Call list reloaded"; self.refreshCalls() }
+                Task { @MainActor in
+                    guard self.callRevision == revision else { return }
+                    if let error { self.notice = "Saved locally. iOS could not reload the list: \(error.localizedDescription)" }
+                    self.refreshCalls()
+                }
             }
             return true
         } catch { notice = "Call list not saved: \(error.localizedDescription)"; return false }
