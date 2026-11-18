@@ -4,7 +4,7 @@ import UserNotifications
 @main struct PrivacyGuardApp: App {
     @UIApplicationDelegateAdaptor(ReviewNotificationDelegate.self) private var notifications
     @StateObject private var state = AppState()
-    var body: some Scene { WindowGroup { RootView().environmentObject(state).environmentObject(notifications) } }
+    var body: some Scene { WindowGroup { RootView().environmentObject(state) } }
 }
 
 final class ReviewNotificationDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, ObservableObject {
@@ -14,13 +14,6 @@ final class ReviewNotificationDelegate: NSObject, UIApplicationDelegate, UNUserN
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         return true
-    }
-
-    func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
-        if let response = options.notificationResponse, Self.opensReview(response) {
-            reviewRequested = true
-        }
-        return connectingSceneSession.configuration
     }
 
     private nonisolated static func opensReview(_ response: UNNotificationResponse) -> Bool {
