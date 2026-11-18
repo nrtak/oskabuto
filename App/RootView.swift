@@ -89,31 +89,27 @@ struct CheckerView: View {
     @EnvironmentObject var state: AppState
     var qrMode = false
     @State private var input = ""
-    @State private var result: SafetyResult?
+    @State private var checked: (input: String, result: SafetyResult)?
     @State private var scanning = false
     @FocusState private var editing: Bool
-
-    private func updateInput(_ value: String) {
-        input = value
-        result = nil
-    }
 
     var body: some View {
         Form {
             Section(qrMode ? "QR contents" : "Link to check") {
                 if qrMode { Button("Scan with camera", systemImage: "camera") { scanning = true } }
                 TextField(qrMode ? "Enter QR contents" : "Enter a web address",
-                          text: Binding(get: { input }, set: updateInput), axis: .vertical)
+                          text: $input, axis: .vertical)
                     .textInputAutocapitalization(.never).autocorrectionDisabled().focused($editing)
                     .accessibilityIdentifier("checkerInput")
                 PasteButton(payloadType: String.self) { values in
-                    if let first = values.first { updateInput(first) }
+                    if let first = values.first { input = first }
                 }
                 Button("Check locally") { check(input) }
                     .modifier(KabutoPrimaryAction())
                     .disabled(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
-            if let result {
+            if let checked, checked.input == input {
+                let result = checked.result
                 Section("Result") {
                     Label(result.title, systemImage: result.suspicious ? "exclamationmark.triangle" : "magnifyingglass")
                         .font(.headline)
@@ -127,12 +123,15 @@ struct CheckerView: View {
                 }
             }.font(.footnote).foregroundStyle(.secondary)
         }
+        .onChange(of: input) { _, newValue in
+            if let checked, checked.input != newValue { self.checked = nil }
+        }
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle(qrMode ? "QR Safety Scanner" : "Link Checker")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $scanning) {
             QRScanner { value in
-                updateInput(value)
+                input = value
                 scanning = false
                 check(value)
             }
@@ -142,7 +141,7 @@ struct CheckerView: View {
     private func check(_ input: String) {
         editing = false
         let value = SafetyEngine.check(input)
-        result = value
+        checked = (input, value)
         state.record("\(qrMode ? "QR" : "Link") check: \(value.title)")
     }
 }

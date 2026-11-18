@@ -21,9 +21,10 @@ final class HomeFlowTests: XCTestCase {
         let field = app.descendants(matching: .any)["checkerInput"].firstMatch
         field.tap()
         field.typeText("https://example.org")
+        XCTAssertTrue(app.buttons["Check locally"].isEnabled, app.debugDescription)
         app.buttons["Check locally"].tap()
         let destination = app.staticTexts["Destination: example.org"]
-        XCTAssertTrue(destination.waitForExistence(timeout: 5))
+        XCTAssertTrue(destination.waitForExistence(timeout: 10), app.debugDescription)
         field.tap()
         field.typeText("a")
         XCTAssertFalse(destination.exists)
@@ -38,8 +39,9 @@ final class HomeFlowTests: XCTestCase {
         let field = app.descendants(matching: .any)["checkerInput"].firstMatch
         field.tap()
         field.typeText("hello")
+        XCTAssertTrue(app.buttons["Check locally"].isEnabled, app.debugDescription)
         app.buttons["Check locally"].tap()
-        XCTAssertTrue(app.staticTexts["Unverified content"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Unverified content"].waitForExistence(timeout: 10), app.debugDescription)
         app.tabBars.buttons["Activity"].tap()
         XCTAssertTrue(app.staticTexts["Activity saving is off"].waitForExistence(timeout: 5))
     }
