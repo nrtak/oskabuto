@@ -15,7 +15,7 @@ private struct GlassTile: ViewModifier {
     }
 }
 
-private struct ProtectionBranches: Shape {
+private struct ToolBranches: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let endpoints = [CGPoint(x: rect.width * 0.25, y: rect.minY),
@@ -30,41 +30,36 @@ private struct ProtectionBranches: Shape {
 }
 
 struct HomeView: View {
-    @EnvironmentObject var state: AppState
     @Environment(\.dynamicTypeSize) private var textSize
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 12) {
+        GeometryReader { viewport in
+            ScrollView {
                 VStack(spacing: 0) {
                     tileLayout {
-                        tile("Call Directory", "phone.fill", .teal, state.callStatus) { CallsView() }
-                        tile("Message Filter", "message.fill", .indigo, "Guided · Settings") { MessageDemoView() }
+                        tile("Check a link", "link", .blue) { CheckerView() }
+                        tile("Scan a QR code", "qrcode.viewfinder", .indigo) { CheckerView(qrMode: true) }
                     }
                     ZStack {
                         if !textSize.isAccessibilitySize {
-                            ProtectionBranches().stroke(.teal, lineWidth: 2).accessibilityHidden(true)
+                            ToolBranches().stroke(.teal.opacity(0.65), lineWidth: 2)
+                                .allowsHitTesting(false).accessibilityHidden(true)
                         }
-                        VStack(spacing: 4) {
-                            Image("AppMark").resizable().scaledToFit().frame(width: 52, height: 52)
-                                .clipShape(RoundedRectangle(cornerRadius: 12)).accessibilityHidden(true)
+                        VStack(spacing: 8) {
+                            Image("AppMark").resizable().scaledToFit().frame(width: 72, height: 72)
+                                .clipShape(RoundedRectangle(cornerRadius: 17)).accessibilityHidden(true)
                             Text("Kabuto Mobile Security").font(.headline).multilineTextAlignment(.center)
                         }
-                        .padding(12).modifier(GlassTile(interactive: false)).padding(.vertical, 6)
+                        .padding(14).modifier(GlassTile(interactive: false)).padding(.vertical, 24)
                         .accessibilityAddTraits(.isHeader)
                     }.fixedSize(horizontal: false, vertical: true)
-                    tile("Secure DNS", "network", .blue, "Guided · DNS profile") { DNSView() }
+                    tile("Review privacy", "checklist", .teal) { PrivacyChecksView() }
+                        .frame(maxWidth: textSize.isAccessibilitySize ? .infinity : 200)
                 }
-                Text("Guided and unknown statuses need review in Settings.")
-                    .font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
-                Text("Safety tools").font(.headline).frame(maxWidth: .infinity, alignment: .leading)
-                tileLayout {
-                    tile("Link Checker", "link", .blue) { CheckerView() }
-                    tile("QR Scanner", "qrcode.viewfinder", .indigo) { CheckerView(qrMode: true) }
-                    tile("Privacy Review", "checklist", .teal) { PrivacyChecksView() }
-                }
-            }.padding(16)
+                .padding(20)
+                .frame(maxWidth: .infinity, minHeight: viewport.size.height)
+            }
         }
         .background {
             Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
@@ -75,11 +70,6 @@ struct HomeView: View {
             }
         }
         .navigationTitle("Home").navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                NavigationLink("Set up") { SetupView() }
-            }
-        }
     }
 
     private var tileLayout: AnyLayout {
@@ -87,16 +77,15 @@ struct HomeView: View {
     }
 
     private func tile<Destination: View>(_ title: String, _ symbol: String, _ color: Color,
-                                         _ detail: String? = nil, @ViewBuilder destination: () -> Destination) -> some View {
+                                         @ViewBuilder destination: () -> Destination) -> some View {
         NavigationLink(destination: destination()) {
             VStack(spacing: 4) {
                 Image(systemName: symbol).font(.title2.weight(.semibold)).foregroundStyle(color).accessibilityHidden(true)
                 Text(title).font(.subheadline.bold()).foregroundStyle(.primary)
-                if let detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
             }
             .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 6).padding(.vertical, 8)
-            .frame(maxWidth: .infinity, minHeight: detail == nil ? 70 : 86)
+            .frame(maxWidth: .infinity, minHeight: 88)
             .modifier(GlassTile()).contentShape(Rectangle())
         }.buttonStyle(.plain)
     }

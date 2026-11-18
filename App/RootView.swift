@@ -29,21 +29,6 @@ struct RootView: View {
     }
 }
 
-struct ProtectionView: View {
-    var body: some View {
-        List {
-            NavigationLink("Set up Kabuto") { SetupView() }
-            NavigationLink("Call Protection") { CallsView() }
-            NavigationLink("SMS / MMS filter") { MessageDemoView() }
-            NavigationLink("Secure DNS") { DNSView() }
-            NavigationLink("Browser & device privacy") { PrivacyChecksView() }
-            Section("Future integration") {
-                Text("Live Caller ID: unavailable in this MVP. Requires Apple capability approval and a compatible private lookup service. No live or reputation lookup is performed.")
-            }
-        }.navigationTitle("Protection").navigationBarTitleDisplayMode(.inline)
-    }
-}
-
 struct CallsView: View {
     @EnvironmentObject var state: AppState
     @State private var number = ""
@@ -67,7 +52,7 @@ struct CallsView: View {
                 ForEach(state.calls) { entry in VStack(alignment: .leading) { Text("+\(entry.number)"); Text(entry.blocked ? "Blocked" : entry.label).font(.caption) } }
                     .onDelete { offsets in var entries = state.calls; entries.remove(atOffsets: offsets); state.saveCalls(entries) }
             }
-            Text("No seeded spam list. Only your explicit entries are used. A reputation feed is a future integration.").font(.caption)
+            Text("Call Protection uses the numbers you add here. Live Caller ID and reputation lookups are unavailable.").font(.caption)
         }.navigationTitle("Call Protection")
     }
 }
@@ -96,7 +81,12 @@ struct CheckerView: View {
     @State private var scanning = false
     var body: some View {
         Form {
-            if qrMode { Button("Scan QR with camera") { scanning = true } }
+            if qrMode {
+                Button("Scan QR with camera") { scanning = true }
+            } else {
+                Text("You can also check a link from another app. Tap Share, then choose Check with Kabuto. Look under More if needed.")
+                    .font(.callout)
+            }
             TextField(qrMode ? "QR contents or link" : "https://example.com", text: $input, axis: .vertical).textInputAutocapitalization(.never).autocorrectionDisabled()
             Button("Check locally") { check() }.modifier(KabutoPrimaryAction()).disabled(input.isEmpty)
             if let result {
