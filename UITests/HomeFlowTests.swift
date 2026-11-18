@@ -76,7 +76,7 @@ final class HomeFlowTests: XCTestCase {
 
     func testOptingOutClearsSavedActivityAcrossLaunches() {
         app.tabBars.buttons["Settings"].tap()
-        app.switches["Don't Save Activity"].tap()
+        setActivitySavingDisabled(false)
         app.tabBars.buttons["Home"].tap()
         openHomeAction("Check a link")
         let field = app.descendants(matching: .any)["checkerInput"].firstMatch
@@ -84,9 +84,9 @@ final class HomeFlowTests: XCTestCase {
         field.typeText("https://example.org")
         app.buttons["Check locally"].tap()
         app.tabBars.buttons["Activity"].tap()
-        let saved = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label BEGINSWITH %@", "Link check: No local warning found")).firstMatch
-        XCTAssertTrue(saved.waitForExistence(timeout: 5))
+        let saved = app.descendants(matching: .any)["activitySummary"].firstMatch
+        XCTAssertTrue(saved.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertEqual(saved.label, "Link check: No local warning found")
 
         app.terminate()
         app.launchArguments = ["-welcomed", "YES"]
@@ -94,17 +94,27 @@ final class HomeFlowTests: XCTestCase {
         app.tabBars.buttons["Activity"].tap()
         XCTAssertTrue(saved.waitForExistence(timeout: 5))
         app.tabBars.buttons["Settings"].tap()
-        app.switches["Don't Save Activity"].tap()
+        setActivitySavingDisabled(true)
         app.terminate()
         app.launch()
         app.tabBars.buttons["Activity"].tap()
         XCTAssertTrue(app.staticTexts["Activity saving is off"].waitForExistence(timeout: 5))
         app.tabBars.buttons["Settings"].tap()
-        app.switches["Don't Save Activity"].tap()
+        setActivitySavingDisabled(false)
         app.tabBars.buttons["Activity"].tap()
         XCTAssertTrue(app.staticTexts["No checks saved yet"].waitForExistence(timeout: 5))
         app.tabBars.buttons["Settings"].tap()
-        app.switches["Don't Save Activity"].tap()
+        setActivitySavingDisabled(true)
+    }
+
+    private func setActivitySavingDisabled(_ disabled: Bool) {
+        let toggle = app.switches["Don't Save Activity"].firstMatch
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        let expected = disabled ? "1" : "0"
+        if toggle.value as? String != expected {
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        }
+        XCTAssertEqual(toggle.value as? String, expected, app.debugDescription)
     }
 
     func testProtectionAndSettingsNavigation() {

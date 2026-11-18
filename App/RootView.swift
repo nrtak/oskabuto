@@ -210,6 +210,10 @@ struct ActivityView: View {
                             } icon: {
                                 Image(systemName: item.summary.hasPrefix("QR") ? "qrcode.viewfinder" : "link")
                             }
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(item.summary)
+                            .accessibilityValue(Text(item.date, format: .dateTime.month().day().hour().minute()))
+                            .accessibilityIdentifier("activitySummary")
                         }
                     } header: { Text("Recent checks") } footer: { Text("Only result summaries are saved on this device.") }
                     Button("Delete all activity", role: .destructive) { confirmDelete = true }
